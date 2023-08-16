@@ -1,0 +1,37 @@
+syntax = "proto3";
+import "c2s_common.proto";
+import "c2s_baseinfo.proto";
+
+package C2S;
+
+
+message C2LLoginReq
+{
+	string sdk_user_id = 1;
+	string sdk_token = 2;
+	int32 sdk_channel = 3;
+}
+
+message C2LLoginRes
+{
+	C2S_ERROR_CODE error_code = 1;
+	string ip = 2;
+	int32 port = 3;
+	string profile_id = 4;
+}
+
+message C2ZLoginZoneReq
+{
+	string profile_id = 1;
+}
+
+message C2ZLoginZoneRes
+{
+	C2S_ERROR_CODE error_code = 1;
+	CSPlayerBaseInfo base_info = 2;
+}
+
+message Z2CKickoutReq
+{
+	C2S_ERROR_CODE error_code = 1;
+}

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package PBDB;
+
+
+
+message PBPlayerData
+{
+	PBPlayerBaseInfo player_base_info = 1;
+}
+
+message PBPlayerBaseInfo
+{
+	string profile_id = 1; 
+	string sdk_user_id = 2;
+	string sdk_token = 3;
+	int32 channel_id = 4;
+	string nickname = 5; 
+	string ip = 6;
+}
+
+
+
+
+
+

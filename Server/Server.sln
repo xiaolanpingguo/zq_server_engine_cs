@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33723.286
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Game", "Game\Game.csproj", "{6EAB70F4-1ED1-4B81-9C19-93653AE94C78}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Common\Common.csproj", "{699F3BDB-7780-4826-BBDE-9DEFC60C14F4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ThirdParty", "ThirdParty\ThirdParty.csproj", "{C503220A-A890-447E-A750-623605AEADE9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6EAB70F4-1ED1-4B81-9C19-93653AE94C78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6EAB70F4-1ED1-4B81-9C19-93653AE94C78}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6EAB70F4-1ED1-4B81-9C19-93653AE94C78}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6EAB70F4-1ED1-4B81-9C19-93653AE94C78}.Release|Any CPU.Build.0 = Release|Any CPU
+		{699F3BDB-7780-4826-BBDE-9DEFC60C14F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{699F3BDB-7780-4826-BBDE-9DEFC60C14F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{699F3BDB-7780-4826-BBDE-9DEFC60C14F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{699F3BDB-7780-4826-BBDE-9DEFC60C14F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C503220A-A890-447E-A750-623605AEADE9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C503220A-A890-447E-A750-623605AEADE9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C503220A-A890-447E-A750-623605AEADE9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C503220A-A890-447E-A750-623605AEADE9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {470EB4A1-A608-48BD-955E-D79457DE7068}
+	EndGlobalSection
+EndGlobal

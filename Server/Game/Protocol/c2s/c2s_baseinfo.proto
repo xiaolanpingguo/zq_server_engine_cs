@@ -1,0 +1,23 @@
+syntax = "proto3";
+import "c2s_common.proto";
+
+package C2S;
+
+
+message CSPlayerBaseInfo
+{
+	string profile_id = 1;
+	string nickname = 2;
+}
+
+
+message C2ZChangeNicknameReq
+{
+	string new_name = 1;
+}
+
+message C2ZChangeNicknameRes
+{
+	C2S_ERROR_CODE error_code = 1;
+}
+
