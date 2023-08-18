@@ -153,9 +153,9 @@ namespace ZQ
                 RPCData data = pair.Value;
                 if (timeNow - data.rpcTimestampMs >= k_rpcTimeoutMs)
                 {
-                    data.tcs.TrySetResult(null);
-                    Log.Error($"rpc timeout, messageId:{data.messageId}, rpcId:{data.rpcId}");
+                    Log.Warning($"MessageDispatcher: rpc timeout, messageId:{data.messageId}, rpcId:{data.rpcId}");
                     m_rpcRequests.Remove(pair.Key);
+                    data.tcs.TrySetResult(null);
                 }
             }
         }

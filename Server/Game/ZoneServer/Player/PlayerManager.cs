@@ -7,7 +7,7 @@ namespace ZQ
 {
     public class PlayerManager
     {
-        private const int k_deletePlayerInterval = 600 * 1000;
+        private const int k_deletePlayerInterval = 60 * 1000;
         private const int k_saveToDBInterval = 10 * 1000;
         private const int k_reportPlayersNumInterval = 5 * 1000;
 

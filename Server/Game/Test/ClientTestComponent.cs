@@ -168,6 +168,11 @@ namespace ZQ
 
         private void SendHeartbeat(object arg)
         {
+            if (!m_service.IsChannelOpen(m_zoneChannelId))
+            {
+                return;
+            }
+
             C2S.C2SHeartBeatReq req = new C2S.C2SHeartBeatReq();
             req.State = 1;
             m_messageDispatcher.Send(req, m_zoneChannelId, (ushort)C2S_MSG_ID.IdC2SHeartbeatReq);
