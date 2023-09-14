@@ -86,7 +86,7 @@ namespace ZQ
             return m_buffer.Length - m_wpos;
         }
 
-        private void Reset()
+        public void Reset()
         {
             m_wpos = 0;
             m_rpos = 0;

@@ -77,6 +77,7 @@ namespace ZQ
         private const string k_testModeArg = "-test";
         private const string k_testMongoArg = "-test_mongo";
         private const string k_testClientArg = "-test_client";
+        private const string k_testKcpClientArg = "-test_kcpclient";
 
         private const string k_serverConfigName = "../../../Assets/Config/ServerConfig.json";
         private const string k_logConfigName = "../../../Assets/Config/NLog.config";
@@ -123,7 +124,7 @@ namespace ZQ
                 return true;
             }
 
-            if (!RegisterComponents())
+            if (!RegisterComponents(args))
             {
                 return false;
             }
@@ -231,7 +232,7 @@ namespace ZQ
             return Log.Instance.Init("server", k_logConfigName, Log.LogType.Debug, true);
         }
 
-        private bool RegisterComponents()
+        private bool RegisterComponents(string[] args)
         {
             List<MongoDBSetupConfig.DBInfo> dbs = new();
             foreach (var db in Config.mongo.dbs)
@@ -262,30 +263,31 @@ namespace ZQ
             };
 
             if (!AddComponent<TimerComponent>()) return false;
-            if (!AddComponent<RedisComponent>(Config.redis.ip, Config.redis.port, Config.redis.pwd)) return false;
-            if (!AddComponent<MongoComponent>(mongoConfig)) return false;
+            //if (!AddComponent<RedisComponent>(Config.redis.ip, Config.redis.port, Config.redis.pwd)) return false;
+            //if (!AddComponent<MongoComponent>(mongoConfig)) return false;
 
-            long timeNow = TimeHelper.TimeStampNowSeconds();
-            if (Config.master != null)
-            {
-                MasterServerId = $"{ServerType.MasterServer}-{Config.master.internalIp}:{Config.master.internalPort}-{timeNow}";
-                if (!AddComponent<S2MasterComponent>(Config.master.internalIp, Config.master.internalPort)) return false;
-            }
+            //long timeNow = TimeHelper.TimeStampNowSeconds();
+            //if (Config.master != null)
+            //{
+            //    MasterServerId = $"{ServerType.MasterServer}-{Config.master.internalIp}:{Config.master.internalPort}-{timeNow}";
+            //    if (!AddComponent<S2MasterComponent>(Config.master.internalIp, Config.master.internalPort)) return false;
+            //}
 
-            if (Config.login != null)
-            {
-                LoginServerId = $"{ServerType.LoginServer}-{Config.login.externalIp}:{Config.login.externalPort}-{timeNow}";
-                if (!AddComponent<Login2MasterComponent>(Config.master.internalIp, Config.master.internalPort)) return false;
-                if (!AddComponent<C2LoginComponent>(Config.login.externalIp, Config.login.externalPort)) return false;
-            }
+            //if (Config.login != null)
+            //{
+            //    LoginServerId = $"{ServerType.LoginServer}-{Config.login.externalIp}:{Config.login.externalPort}-{timeNow}";
+            //    if (!AddComponent<Login2MasterComponent>(Config.master.internalIp, Config.master.internalPort)) return false;
+            //    if (!AddComponent<C2LoginComponent>(Config.login.externalIp, Config.login.externalPort)) return false;
+            //}
 
-            if (Config.zone != null)
-            {
-                ZoneServerId = $"{ServerType.ZoneServer}-{Config.zone.externalIp}:{Config.zone.externalPort}-{timeNow}";
-                if (!AddComponent<Zone2MasterComponent>(Config.master.internalIp, Config.master.internalPort)) return false;
-                if (!AddComponent<C2ZoneComponent>(Config.zone.externalIp, Config.zone.externalPort)) return false;
-            }
+            //if (Config.zone != null)
+            //{
+            //    ZoneServerId = $"{ServerType.ZoneServer}-{Config.zone.externalIp}:{Config.zone.externalPort}-{timeNow}";
+            //    if (!AddComponent<Zone2MasterComponent>(Config.master.internalIp, Config.master.internalPort)) return false;
+            //    if (!AddComponent<C2ZoneComponent>(Config.zone.externalIp, Config.zone.externalPort)) return false;
+            //}
 
+            if (!AddComponent<C2DedicatedComponent>(Config.login.externalIp, Config.login.externalPort)) return false;
             return true;
         }
 
@@ -295,8 +297,10 @@ namespace ZQ
             {
                 if (arg == k_testMongoArg) AddComponent<MongoTestComponent>();
                 if (arg == k_testClientArg) AddComponent<ClientTestComponent>(Config.login.externalIp, Config.login.externalPort, 1);
+                if (arg == k_testKcpClientArg) AddComponent<KcpClientTestComponent>(Config.login.externalIp, Config.login.externalPort, 2);
             }
 
+            return false;
             return m_components.Count > 0;
         }
     }

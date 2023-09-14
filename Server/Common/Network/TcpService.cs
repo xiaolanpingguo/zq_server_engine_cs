@@ -1,6 +1,9 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Linq;
 
 
 namespace ZQ
@@ -49,7 +52,7 @@ namespace ZQ
                 m_acceptor.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 m_acceptEventArgs.Completed += OnAcceptEvent;
                 m_acceptor.Bind(ipEndPoint);
-                m_acceptor.Listen();
+                m_acceptor.Listen(int.MaxValue);
             }
         }
 
