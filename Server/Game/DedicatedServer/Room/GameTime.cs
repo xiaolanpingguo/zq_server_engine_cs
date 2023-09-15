@@ -4,67 +4,32 @@ namespace ZQ
 {
     public class GameTime
     {
-        private int m_timeZone; 
+        private long m_startTime;
+        private int m_interval;
         private DateTime m_dt1970;
-        private DateTime m_dt;
-        
-        public long ServerMinusClientTime { private get; set; }
+        public long FrameTimeNow { get; private set; }
 
-        public long FrameTime { get; private set; }
-
-        public int TimeZone
+        public GameTime(int interval)
         {
-            get
-            {
-                return m_timeZone;
-            }
-            set
-            {
-                m_timeZone = value;
-                m_dt = m_dt1970.AddHours(TimeZone);
-            }
-        }
-
-        public GameTime()
-        {
+            m_interval = interval;
             m_dt1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            m_dt = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            FrameTime = this.ClientNow();
+            FrameTimeNow = Now();
+            m_startTime = FrameTimeNow;
         }
 
         public void Update()
         {
-            this.FrameTime = this.ClientNow();
+            FrameTimeNow = Now();
         }
         
-        public DateTime ToDateTime(long timeStamp)
-        {
-            return m_dt.AddTicks(timeStamp * 10000);
-        }
-        
-        public long ClientNow()
+        public long Now()
         {
             return (DateTime.UtcNow.Ticks - m_dt1970.Ticks) / 10000;
         }
-        
-        public long ServerNow()
+
+        public long FrameTime(int frame)
         {
-            return ClientNow() + this.ServerMinusClientTime;
-        }
-        
-        public long ClientFrameTime()
-        {
-            return this.FrameTime;
-        }
-        
-        public long ServerFrameTime()
-        {
-            return this.FrameTime + this.ServerMinusClientTime;
-        }
-        
-        public long Transition(DateTime d)
-        {
-            return (d.Ticks - m_dt.Ticks) / 10000;
+            return m_startTime + frame * m_interval;
         }
     }
 }

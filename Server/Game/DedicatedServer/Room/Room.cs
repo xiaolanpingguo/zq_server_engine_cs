@@ -1,153 +1,211 @@
+using C2S;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Net.Sockets;
 using System.Threading.Channels;
 
 namespace ZQ
 {
     public class Room
     {
-        private readonly C2DSMessageDispatcher m_messageDispatcher;
+        private enum ERoomState
+        {
+            MatchMaking,
+            WaittingForPlayerLoading,
+            Playing,
+            End
+        }
 
-        private GameTime m_gameTime = new GameTime();
+        private readonly C2DedicatedComponent m_c2dedicatedComponent;
+        private readonly C2DSMessageDispatcher m_messageDispatcher;
+        private readonly Dictionary<ushort, Action<ushort, ulong, int, object>> m_messageHandlers = new();
+        private readonly StateMachine<ERoomState> m_stateMachine;
+
+        private GameTime m_gameTime;
         private int m_matchCount = 1;
-        private long m_startTime;
 
         private GameWorld m_world;
 
-        private List<AuthorityPlayer> m_players;
+        private Dictionary<ulong, AuthorityPlayer> m_players = new();
 
-        // 帧缓存
         private FrameBuffer m_frameBuffer;
 
-        // 计算fixedTime，fixedTime在客户端是动态调整的，会做时间膨胀缩放
-        private FixedTimeCounter m_fixedTimeCounter;
-
-        // 预测帧
-        private int m_predictionFrame = -1;
-
-        // 权威帧
         private int m_authorityFrame = -1;
-
-        // 存档
-        private Replay m_replay = new();
 
         public const int k_updateInterval = 50;
         public const int k_frameCountPerSecond = 1000 / k_updateInterval;
-        public const int k_saveWorldFrameCount = 60 * k_frameCountPerSecond;
 
-        public bool IsReplay { get; set; }
-        
-        public int SpeedMultiply { get; set; }
-
-        public Room(C2DSMessageDispatcher messageDispatcher, int matchCount = 1) 
+        public Room(C2DedicatedComponent c2dedicatedComponent, C2DSMessageDispatcher messageDispatcher, int matchCount = 1) 
         {
+            m_c2dedicatedComponent = c2dedicatedComponent;
             m_messageDispatcher = messageDispatcher;
             m_matchCount = matchCount;
+            m_gameTime = new GameTime(k_updateInterval);
             m_frameBuffer = new FrameBuffer(-1, k_frameCountPerSecond);
-            m_players = new List<AuthorityPlayer>(m_matchCount);
+
+            RegisterMessage((ushort)C2DSMessageId.C2DS_PingReq, typeof(C2DS_PingReq), OnClientPing);
+            RegisterMessage((ushort)C2DSMessageId.C2DS_LoadingProgress, typeof(C2DS_LoadingProgressReq), OnLoadingProgress);
+            RegisterMessage((ushort)C2DSMessageId.C2DS_FrameMessage, typeof(C2DS_FrameMessage), OnFrameMessage);
+
+            m_stateMachine = new StateMachine<ERoomState>();
+            m_stateMachine.Add(ERoomState.MatchMaking, EnterMatchmaking, UpdateMatchmaking, LeaveMatchmaking);
+            m_stateMachine.Add(ERoomState.WaittingForPlayerLoading, null, UpdatePlayrLoading, null);
+            m_stateMachine.Add(ERoomState.Playing, null, UpdatePlaying, null);
+            m_stateMachine.Add(ERoomState.End, null, () => { }, null);
+            m_stateMachine.SwitchTo(ERoomState.MatchMaking);
         }
 
         public void Update()
         {
-            m_gameTime.Update();
-            long timeNow = m_gameTime.ServerFrameTime();
+            m_stateMachine.Update();
+        }
 
-            int frame = m_predictionFrame + 1;
-            if (timeNow < m_fixedTimeCounter.FrameTime(frame))
+        public void OnMessage(ushort messageId, ulong channelId, int rpcId, object message)
+        {
+            AuthorityPlayer player = GetPlayer(channelId);
+            if (player == null)
             {
                 return;
             }
 
-            OneFrameInputs oneFrameInputs = GetOneFrameMessage(frame);
-            ++m_predictionFrame;
+            if (m_messageHandlers.TryGetValue(messageId, out var handler))
+            {
+                handler?.Invoke(messageId, channelId, rpcId, message);
+            }
+        }
 
+        public int PlayersCount()
+        {
+            return m_players.Count;
+        }
+
+        private void EnterMatchmaking()
+        {
+
+        }
+
+        private void UpdateMatchmaking()
+        {
+            m_stateMachine.SwitchTo(ERoomState.WaittingForPlayerLoading);
+        }
+
+        private void LeaveMatchmaking()
+        {
+
+        }
+
+        private void UpdatePlayrLoading()
+        {
+
+        }
+
+        private void UpdatePlaying()
+        {
+            m_gameTime.Update();
+            long timeNow = m_gameTime.FrameTimeNow;
+
+            int nextFrame = m_authorityFrame + 1;
+            if (timeNow < m_gameTime.FrameTime(nextFrame))
+            {
+                return;
+            }
+
+            m_authorityFrame = nextFrame;
+
+            OneFrameInputs oneFrameInputs = GetOneFrameMessage(nextFrame);
             OneFrameInputs sendInput = new();
             oneFrameInputs.CopyTo(sendInput);
             BroadCast(sendInput);
 
-            //LSWorld lsWorld = self.LSWorld;
-            //// 设置输入到每个LSUnit身上
-            //LSUnitComponent unitComponent = lsWorld.GetComponent<LSUnitComponent>();
-            //foreach (var kv in oneFrameInputs.Inputs)
-            //{
-            //    LSUnit lsUnit = unitComponent.GetChild<LSUnit>(kv.Key);
-            //    LSInputComponent lsInputComponent = lsUnit.GetComponent<LSInputComponent>();
-            //    lsInputComponent.LSInput = kv.Value;
-            //}
-
-            if (!IsReplay)
-            {
-                // 保存当前帧场景数据
-                SaveLSWorld();
-                Record(m_world.Frame);
-            }
-
             m_world.Update();
         }
 
-        //public GameWorld GetLSWorld(int frame)
-        //{
-        //    MemoryBuffer memoryBuffer = self.FrameBuffer.Snapshot(frame);
-        //    memoryBuffer.Seek(0, SeekOrigin.Begin);
-        //    GameWorld world = MongoHelper.Deserialize(typeof(LSWorld), memoryBuffer) as LSWorld;
-        //    lsWorld.SceneType = sceneType;
-        //    memoryBuffer.Seek(0, SeekOrigin.Begin);
-        //    return lsWorld;
-        //}
-
-        private void SaveLSWorld()
+        private bool RegisterMessage(ushort messageId, Type type, Action<ushort, ulong, int, object> handler)
         {
-            //int frame = World.Frame;
-            //MemoryBuffer memoryBuffer = FrameBuffer.Snapshot(frame);
-            //memoryBuffer.Seek(0, SeekOrigin.Begin);
-            //memoryBuffer.SetLength(0);
+            m_c2dedicatedComponent.RegisterRoomMessage(messageId, type);
+            m_messageHandlers[messageId] = handler;
 
-            //MongoHelper.Serialize(self.LSWorld, memoryBuffer);
-            //memoryBuffer.Seek(0, SeekOrigin.Begin);
-
-            //long hash = memoryBuffer.GetBuffer().Hash(0, (int)memoryBuffer.Length);
-
-            //FrameBuffer.SetHash(frame, hash);
+            return true;
         }
 
-        public void Record(int frame)
+        private void OnClientPing(ushort messageId, ulong channelId, int rpcId, object message)
         {
-            //if (frame > self.AuthorityFrame)
-            //{
-            //    return;
-            //}
+            if (message is not C2DS_PingReq req)
+            {
+                Log.Error($"LSRoom error: cannot conver message to C2DS_PingReq");
+                return;
+            }
 
-            //C2S.OneFrameInputs oneFrameInputs = self.FrameBuffer.FrameInputs(frame);
-            //C2S.OneFrameInputs saveInput = new();
-            //oneFrameInputs.CopyTo(saveInput);
-            //self.Replay.FrameInputs.Add(saveInput);
-            //if (frame % k_saveWorldFrameCount == 0)
-            //{
-            //    MemoryBuffer memoryBuffer = self.FrameBuffer.Snapshot(frame);
-            //    byte[] bytes = memoryBuffer.ToArray();
-            //    self.Replay.Snapshots.Add(bytes);
-            //}
+            C2DS_PingRes res = new C2DS_PingRes();
+            res.Time = m_gameTime.Now();
+            m_messageDispatcher.Response(res, channelId, (ushort)C2DSMessageId.C2DS_PingRes, rpcId);
         }
 
-        public void OnClientFrameMessage(ulong channelId, int rpcId, C2DS_FrameMessage req)
+        private void OnLoadingProgress(ushort messageId, ulong channelId, int rpcId, object message)
         {
+            if (message is not C2DS_LoadingProgressReq req)
+            {
+                Log.Error($"LSRoom error: cannot conver message to C2DS_LoadingProgressReq");
+                return;
+            }
+
+            if (m_stateMachine.CurrentState() != ERoomState.WaittingForPlayerLoading)
+            {
+                return;
+            }
+
+            AuthorityPlayer player = GetPlayer(channelId);
+            if (player == null)
+            {
+                return;
+            }
+
+            bool startGame = true;
+            player.Progress = req.Progress;
+            foreach (var kv in m_players)
+            {
+                Log.Info($"OnLoadingProgress, player channelId:{channelId}, Progress{player.Progress}");
+                if (player.Progress != 100)
+                {
+                    startGame = false;
+                }
+            }
+
+            if (startGame)
+            {
+                m_stateMachine.SwitchTo(ERoomState.Playing);
+            }
+        }
+
+        private void OnFrameMessage(ushort messageId, ulong channelId, int rpcId, object message)
+        {
+            if (message is not C2DS_FrameMessage req)
+            {
+                Log.Error($"LSRoom error: cannot conver message to C2DS_FrameMessage");
+                return;
+            }
+
+            if (m_stateMachine.CurrentState() != ERoomState.Playing)
+            {
+                return;
+            }
+
             int clientFrame = req.Frame;
             FrameBuffer frameBuffer = m_frameBuffer;
             if (clientFrame % (1000 / k_updateInterval) == 0)
             {
-                long nowFrameTime = m_fixedTimeCounter.FrameTime(clientFrame);
-                int diffTime = (int)(nowFrameTime - m_gameTime.ServerFrameTime());
+                long nowFrameTime = m_gameTime.FrameTime(clientFrame);
+                int diffTime = (int)(nowFrameTime - m_gameTime.FrameTimeNow);
                 m_messageDispatcher.Send(new DS2C_AdjustUpdateTime() { DiffTime = diffTime }, channelId, (ushort)C2DSMessageId.DS2C_AdjustUpdateTime);
             }
 
-            // 小于AuthorityFrame，丢弃
-            if (clientFrame < m_predictionFrame)
+            if (clientFrame < m_authorityFrame)
             {
                 Log.Warning($"FrameMessage < AuthorityFrame discard: {clientFrame}");
                 return;
             }
 
-            // 大于AuthorityFrame + 10，丢弃
-            if (clientFrame > m_predictionFrame + 10)
+            if (clientFrame > m_authorityFrame + 10)
             {
                 Log.Warning($"FrameMessage > AuthorityFrame + 10 discard: {clientFrame}");
                 return;
@@ -159,28 +217,29 @@ namespace ZQ
                 Log.Error($"FrameMessageHandler get frame is null: {clientFrame}, max frame: {frameBuffer.MaxFrame}");
                 return;
             }
+
             oneFrameInputs.Inputs[req.ProfileId] = req.Input;
         }
 
         public bool AddPlayer(AuthorityPlayer player) 
         {
-            bool found = false;
-            foreach (AuthorityPlayer p in m_players)
-            {
-                if (p.ChannelId == player.ChannelId)
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) 
+            if (m_players.ContainsKey(player.ChannelId))
             {
                 return false;
             }
 
-            m_players.Add(player);
+            m_players[player.ChannelId] = player;
             return true;
+        }
+
+        private AuthorityPlayer GetPlayer(ulong channelId)
+        {
+            if (m_players.TryGetValue(channelId, out var playerEntity))
+            {
+                return playerEntity;
+            }
+
+            return null;
         }
 
         private OneFrameInputs GetOneFrameMessage(int frame)
@@ -193,15 +252,17 @@ namespace ZQ
                 return oneFrameInputs;
             }
 
+            // some of players's message has not received in this frame
+            // so use last frame input instead
             OneFrameInputs preFrameInputs = null;
             if (m_frameBuffer.CheckFrame(frame - 1))
             {
                 preFrameInputs = m_frameBuffer.FrameInputs(frame - 1);
             }
 
-            // 有人输入的消息没过来，给他使用上一帧的操作
-            foreach (AuthorityPlayer player in m_players)
+            foreach (var kv in m_players)
             {
+                AuthorityPlayer player = kv.Value;
                 string profileId = player.ProfileId;
                 if (oneFrameInputs.Inputs.ContainsKey(profileId))
                 {
@@ -210,7 +271,6 @@ namespace ZQ
 
                 if (preFrameInputs != null && preFrameInputs.Inputs.TryGetValue(profileId, out EntityInput input))
                 {
-                    // 使用上一帧的输入
                     oneFrameInputs.Inputs[profileId] = input;
                 }
                 else
@@ -224,8 +284,9 @@ namespace ZQ
 
         private void BroadCast(OneFrameInputs inputs)
         {
-            foreach (AuthorityPlayer player in m_players)
+            foreach (var kv in m_players)
             {
+                AuthorityPlayer player = kv.Value;
                 m_messageDispatcher.Send(new DS2C_OneFrameInputs() { FrameInputs = inputs }, player.ChannelId, (ushort)C2DSMessageId.DS2C_OneFrameInputs);
             }
         }

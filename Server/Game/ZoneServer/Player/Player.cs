@@ -96,11 +96,8 @@ namespace ZQ
 
         public bool RegisterMessage(C2S_MSG_ID messageId, Type type, Action<ushort, int, IMessage> handler)
         {
-            if (m_playerManager.RegisterPlayerMessage(messageId, type))
-            {
-                m_messageHandlers[(ushort)messageId] = handler;
-            }
-
+            m_playerManager.RegisterPlayerMessage(messageId, type);
+            m_messageHandlers[(ushort)messageId] = handler;
             return true;
         }
 

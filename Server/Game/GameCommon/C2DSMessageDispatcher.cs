@@ -47,6 +47,16 @@ namespace ZQ
             m_service = service;
         }
 
+        public bool IsMessageRegistered(ushort messageId)
+        {
+            if (m_messageTypes.ContainsKey(messageId) || m_messageHandlers.ContainsKey(messageId))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         public bool RegisterMessage(ushort messageId, Type type, Action<ushort, ulong, int, object> handler = null)
         {
             if (m_messageTypes.ContainsKey(messageId) || m_messageHandlers.ContainsKey(messageId)) 
