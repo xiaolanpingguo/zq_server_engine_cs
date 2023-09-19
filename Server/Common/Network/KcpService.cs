@@ -7,8 +7,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Threading.Channels;
 
 namespace ZQ
 {
@@ -26,6 +24,8 @@ namespace ZQ
 
     public sealed class KcpService
     {
+        public const int k_receiveBufferSize = 1024 * 1024 * 4;
+        public const int k_sendBufferSize = 1024 * 1024 * 4;
         public const int k_connectTimeoutTime = 10 * 1000;
         public int m_sendMaxWaitSize = 0;
 
@@ -94,8 +94,8 @@ namespace ZQ
             Socket = new Socket(ipEndPoint.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                Socket.SendBufferSize = Kcp.k_sendBufferSize;
-                Socket.ReceiveBufferSize = Kcp.k_receiveBufferSize;
+                Socket.SendBufferSize = k_sendBufferSize;
+                Socket.ReceiveBufferSize = k_receiveBufferSize;
             }
 
             Socket.Bind(ipEndPoint);
