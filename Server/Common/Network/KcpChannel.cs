@@ -9,6 +9,8 @@ namespace ZQ
 {
 	public class KcpChannel
 	{
+        static private readonly System.Buffers.ArrayPool<byte> s_byteArrayPool = System.Buffers.ArrayPool<byte>.Create(2048, 1000);
+
         private const int k_mtuSize = 1472;
 
         private readonly KcpService m_service;
@@ -62,7 +64,7 @@ namespace ZQ
 			m_kcp.SetWindowSize(1024, 1024);
 			m_kcp.SetMtu(k_mtuSize);
 			m_kcp.SetMinrto(30);
-			m_kcp.SetArrayPool(m_service.byteArrayPool);
+			m_kcp.SetArrayPool(s_byteArrayPool);
 		}
 
 		public KcpChannel(uint localConn, IPEndPoint remoteEndPoint, KcpService kService)

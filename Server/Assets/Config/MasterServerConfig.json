@@ -1,0 +1,34 @@
+{
+	"masterIp": "127.0.0.1",
+	"masterPort": 8100,
+	"redisConfig":
+	{
+		"ip": "127.0.0.1",
+		"port": 6379,
+		"pwd":""
+	},
+	"mongoConfig":
+	{
+		"ip": "127.0.0.1",
+		"port": 27017,
+		"srv": "",
+		"user": "",
+		"pwd": "",
+		"dbs" : 
+		[
+			{
+				"dbName": "zq",
+				"collections": [
+				{
+					"collectionName": "accounts",
+					"indexNames":["SDKUserId", "ProfileId"]
+				},
+				{
+					"collectionName": "players",
+					"indexNames":["ProfileId"]
+				}
+				]
+			}
+		]
+	}
+}

@@ -81,12 +81,6 @@ namespace ZQ
         // for client/server
         public Action<ulong, MessageBuffer> DataReceivedCallback;
 
-#if !UNITY
-        public readonly ArrayPool<byte> byteArrayPool = ArrayPool<byte>.Create(2048, 3000);
-#else
-        public readonly ArrayPool<byte> byteArrayPool = ArrayPool<byte>.Create(2048,200);
-#endif
-
         public KcpService(IPEndPoint ipEndPoint, int sendMaxWaitSize = 1024 * 16)
         {
             m_sendMaxWaitSize = sendMaxWaitSize;
