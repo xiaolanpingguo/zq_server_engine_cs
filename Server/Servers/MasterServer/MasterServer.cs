@@ -19,7 +19,7 @@ namespace ZQ
 
     public class MasterServer : Server
     {
-        private const string k_serverConfigName = "../../../Assets/Config/MasterServerConfig.json";
+        private const string k_serverConfigName = "Assets/Config/MasterServerConfig.json";
 
         public MasterServerConfig Config = null!;
 
@@ -31,6 +31,11 @@ namespace ZQ
 
         public override bool Init(string[] args)
         {
+            if (!base.Init(args))
+            {
+                return false;
+            }
+
             MasterServerConfig? config = ReadConfig<MasterServerConfig>(k_serverConfigName);
             if (config == null)
             {

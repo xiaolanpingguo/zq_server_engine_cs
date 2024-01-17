@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Net;
+using System.Text;
+using Newtonsoft.Json;
 
 namespace ZQ
 {
@@ -22,7 +21,7 @@ namespace ZQ
 
     public class LoginServer : Server
     {
-        private const string k_serverConfigName = "../../../Assets/Config/LoginServerConfig.json";
+        private const string k_serverConfigName = "Assets/Config/LoginServerConfig.json";
 
         public LoginServerConfig Config = null!;
 
@@ -34,6 +33,11 @@ namespace ZQ
 
         public override bool Init(string[] args)
         {
+            if (!base.Init(args)) 
+            {
+                return false;
+            }
+
             LoginServerConfig? config = ReadConfig<LoginServerConfig>(k_serverConfigName);
             if (config == null)
             {
@@ -96,6 +100,24 @@ namespace ZQ
             if (!AddModule<C2LoginModule>(this, Config.externalIp, Config.externalPort)) return false;
 
             return true;
+        }
+
+        public struct UserData
+        {
+            public int id;
+            public string name;
+        }
+        public static void TestWebApi(HttpListenerRequest req, HttpListenerResponse res)
+        {
+            UserData userData = new UserData
+            {
+                id = 100,
+                name = "zq",
+            };
+            string data = JsonConvert.SerializeObject(userData);
+            byte[] bytes = Encoding.UTF8.GetBytes(data);
+            res.OutputStream.Write(bytes);
+            res.StatusCode = 200;
         }
     }
 }

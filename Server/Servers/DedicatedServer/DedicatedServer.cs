@@ -19,7 +19,7 @@ namespace ZQ
 
     public class DedicatedServer : Server
     {
-        private const string k_serverConfigName = "../../../Assets/Config/LoginServerConfig.json";
+        private const string k_serverConfigName = "Assets/Config/LoginServerConfig.json";
 
         public DedicatedServerConfig Config = null!;
 
@@ -31,6 +31,11 @@ namespace ZQ
 
         public override bool Init(string[] args)
         {
+            if (!base.Init(args))
+            {
+                return false;
+            }
+
             DedicatedServerConfig? config = ReadConfig<DedicatedServerConfig>(k_serverConfigName);
             if (config == null)
             {

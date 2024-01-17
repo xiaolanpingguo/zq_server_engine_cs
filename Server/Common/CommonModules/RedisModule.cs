@@ -1,34 +1,10 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Threading.Tasks;
 using StackExchange.Redis;
 
 namespace ZQ
 {
     public class RedisModule : IModule
     {
-        internal class RedisTask
-        {
-            public readonly TaskCompletionSource<RedisResult> resultTcs;
-            public string command;
-            public object[] args;
-            public RedisTask(TaskCompletionSource<RedisResult> resultTcs, string command, object[] args)
-            {
-                this.resultTcs = resultTcs;
-                this.command = command;
-                this.args = args;
-            }
-        }
-
-        internal class RedisTaskCallback
-        {
-            public readonly TaskCompletionSource completeTcs;
-            public readonly TaskCompletionSource<RedisResult> resultTcs;
-            public RedisTaskCallback(TaskCompletionSource completeTcs, TaskCompletionSource<RedisResult> resultTcs)
-            {
-                this.completeTcs = completeTcs;
-                this.resultTcs = resultTcs;
-            }
-        }
-
         private const int k_connectTimeout = 3000;
         private const int k_checkAlive = 60;
         private const int k_reconnectTime = 3000;
@@ -38,12 +14,6 @@ namespace ZQ
         private string m_pwd;
         private ConfigurationOptions m_config = new ConfigurationOptions();
         private IDatabase m_database;
-
-        private Thread m_thread;
-
-        private int k_requestLimitSize = 1024;
-        private ConcurrentQueue<RedisTask> m_queueTasks = new ConcurrentQueue<RedisTask>();
-        private Queue<RedisTaskCallback> m_queueCallbacks = new Queue<RedisTaskCallback>();
 
         public RedisModule(string ip, ushort port, string pwd)
         {
@@ -66,35 +36,17 @@ namespace ZQ
                 return false;
             }
 
-            m_thread = new Thread(TaskThread);
-            m_thread.Start();
             return true;
         }
 
         public async Task<RedisResult> ExecuteCmd(string command, params object[] args)
         {
-            if (m_queueTasks.Count > k_requestLimitSize)
-            {
-                Log.Error("too many redis request!");
-                return null;
-            }
-
             if (string.IsNullOrEmpty(command))
             {
                 return null;
             }
 
-            var completeTcs = new TaskCompletionSource();
-            var resultTcs = new TaskCompletionSource<RedisResult>();
-
-            RedisTask task = new RedisTask(resultTcs, command, args);
-            m_queueTasks.Enqueue(task);
-
-            RedisTaskCallback cb = new RedisTaskCallback(completeTcs, resultTcs);
-            m_queueCallbacks.Enqueue(cb);
-
-            await completeTcs.Task;
-            return await resultTcs.Task;
+            return await ExecuteCmdInternal(command, args);
         }
 
         #region KEY
@@ -149,13 +101,31 @@ namespace ZQ
 
         public bool Update(long timeNow)
         {
-            processCallbacks();
             return true;
         }
 
         public bool Shutdown()
         {
             return true;
+        }
+
+        private async Task<RedisResult> ExecuteCmdInternal(string command, params object[] args)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(command))
+                {
+                    return null;
+                }
+
+                var redisResult = await m_database.ExecuteAsync(command, args);
+                return redisResult;
+            }
+            catch (Exception ex) 
+            {
+                Log.Error($"ExecuteCmdInternal: exe redis cmd failed, command:{command}, exception:{ex}");
+                return null;
+            }
         }
 
         private bool Connect()
@@ -172,50 +142,6 @@ namespace ZQ
             }
 
             return true;
-        }
-
-        private void processCallbacks()
-        {
-            if (m_queueCallbacks.Count == 0 || !m_queueCallbacks.TryPeek(out var callback))
-            {
-                return;
-            }
-
-            if (!callback.resultTcs.Task.IsCompleted)
-            {
-                return;
-            }
-
-            m_queueCallbacks.Dequeue();
-            callback.completeTcs.SetResult();
-        }
-
-        private void TaskThread()
-        {
-            while (true)
-            {
-                if (m_queueTasks.Count == 0 || !m_queueTasks.TryDequeue(out var task))
-                {
-                    continue;
-                }
-
-                var t = ExecuteTask(task);
-                t.Wait();
-            }
-        }
-
-        private async Task ExecuteTask(RedisTask task)
-        {
-            try
-            {
-                var redisResult = await m_database.ExecuteAsync(task.command, task.args);
-                task.resultTcs.SetResult(redisResult);
-            }
-            catch (Exception e)
-            {
-                Log.Error($"execute redis command failed, ex:{e}");
-                task.resultTcs.SetResult(null);
-            }
         }
     }
 

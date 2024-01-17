@@ -1,10 +1,7 @@
-﻿using MongoDB.Bson.Serialization.Serializers;
-using NLog;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -50,7 +47,9 @@ namespace ZQ
 
     public abstract class Server
     {
-        protected const string k_logConfigName = "../../../Assets/Config/NLog.config";
+        protected const string k_logConfigName = "Assets/Config/NLog.config";
+
+        protected ThreadSynchronizationContext n_threadSynchronizationContext = new ThreadSynchronizationContext();
 
         protected readonly List<IModule> m_modules = new List<IModule>();
         protected readonly Dictionary<Type, IModule> m_moduleDic = new Dictionary<Type, IModule>();
@@ -59,8 +58,13 @@ namespace ZQ
 
         public abstract string ServerId { get;}
         public abstract ServerType ServerType { get;}
-        public abstract bool Init(string[] args);
         protected abstract bool RegisterModules(string[] args);
+
+        public virtual bool Init(string[] args)
+        {
+            SynchronizationContext.SetSynchronizationContext(n_threadSynchronizationContext);
+            return true;
+        }
 
         public void Run()
         {
@@ -69,6 +73,7 @@ namespace ZQ
                 long timeNow = TimeHelper.TimeStampNowMs();
                 try
                 {
+                    n_threadSynchronizationContext.Update();
                     foreach (IModule m in m_modules)
                     {
                         m.Update(timeNow);

@@ -1,7 +1,7 @@
-﻿using System.Collections.Concurrent;
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using System.Threading.Tasks;
 
 
 namespace ZQ
@@ -35,105 +35,11 @@ namespace ZQ
 
     public class MongoModule : IModule
     {
-        internal class MongoResponse
-        {
-            public bool success;
-            public string errorDesc;
-            public List<BsonDocument> result;
-        }
-
-        internal class MongoTask
-        {
-            public IMongoCollection<BsonDocument> collection;
-            public TaskCompletionSource<MongoResponse> resultTcs;
-        }
-
-        internal class MongoTaskInsert : MongoTask
-        {
-            public List<BsonDocument> docs;
-            public MongoTaskInsert(IMongoCollection<BsonDocument> col, TaskCompletionSource<MongoResponse> resultTcs, List<BsonDocument> docs)
-            {
-                this.collection = col;
-                this.docs = docs;
-                this.resultTcs = resultTcs;
-            }
-        }
-
-        internal class MongoTaskDelete : MongoTask
-        {
-            public FilterDefinition<BsonDocument> filter;
-            public MongoTaskDelete(IMongoCollection<BsonDocument> col, TaskCompletionSource<MongoResponse> resultTcs, FilterDefinition<BsonDocument> filter)
-            {
-                this.collection = col;
-                this.filter = filter;
-                this.resultTcs = resultTcs;
-            }
-        }
-
-        internal class MongoTaskFind : MongoTask
-        {
-            public FilterDefinition<BsonDocument> filter;
-            public MongoTaskFind(IMongoCollection<BsonDocument> col, TaskCompletionSource<MongoResponse> resultTcs, FilterDefinition<BsonDocument> filter)
-            {
-                this.collection = col;
-                this.filter = filter;
-                this.resultTcs = resultTcs;
-            }
-        }
-
-        internal class MongoTaskSave : MongoTask
-        {
-            public FilterDefinition<BsonDocument> filter;
-            public BsonDocument replacement;
-            public FindOneAndReplaceOptions<BsonDocument> option;
-            public MongoTaskSave(IMongoCollection<BsonDocument> col, TaskCompletionSource<MongoResponse> resultTcs, 
-                FilterDefinition<BsonDocument> filter, BsonDocument replacement, FindOneAndReplaceOptions<BsonDocument> option)
-            {
-                this.collection = col;
-                this.filter = filter;
-                this.resultTcs = resultTcs;
-                this.option = option;
-                this.replacement = replacement;
-            }
-        }
-
-        internal class MongoTaskUpdate : MongoTask
-        {
-            public FilterDefinition<BsonDocument> filter;
-            public UpdateDefinition<BsonDocument> updator;
-            public UpdateOptions option;
-            public MongoTaskUpdate(IMongoCollection<BsonDocument> col, TaskCompletionSource<MongoResponse> resultTcs,
-                FilterDefinition<BsonDocument> filter, UpdateDefinition<BsonDocument> updator, UpdateOptions option)
-            {
-                this.collection = col;
-                this.filter = filter;
-                this.resultTcs = resultTcs;
-                this.option = option;
-                this.updator = updator;
-            }
-        }
-
-        internal class MongoTaskCallback
-        {
-            public readonly TaskCompletionSource completeTcs;
-            public readonly TaskCompletionSource<MongoResponse> resultTcs;
-            public MongoTaskCallback(TaskCompletionSource completeTcs, TaskCompletionSource<MongoResponse> resultTcs)
-            {
-                this.completeTcs = completeTcs;
-                this.resultTcs = resultTcs;
-            }
-        }
-
         private string m_connectionUrl;
         private MongoDBSetupConfig m_config;
         private MongoClient m_client;
 
         private Dictionary<string, Dictionary<string, IMongoCollection<BsonDocument>>> m_collections = new();
-
-        private Thread m_thread;
-
-        private ConcurrentQueue<MongoTask> m_queueTasks = new ConcurrentQueue<MongoTask>();
-        private Queue<MongoTaskCallback> m_queueCallbacks = new Queue<MongoTaskCallback>();
 
         public MongoModule(MongoDBSetupConfig config)
         {
@@ -147,15 +53,11 @@ namespace ZQ
                 return false;
             }
 
-            m_thread = new Thread(TaskThread);
-            m_thread.Start();
-
             return true;
         }
 
         public bool Update(long timeNow)
         {
-            processCallbacks();
             return true;
         }
 
@@ -166,103 +68,87 @@ namespace ZQ
 
         public async Task<MongoResult<object>> Insert<T>(string dbName, string collName, List<T> obj) where T : class
         {
-            var col = GetCollection(dbName, collName);
-            if (col == null)
-            {
-                string str = $"[Insert] cannot find collection, db:{dbName}, col:{collName}";
-                Log.Error(str);
-                return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null};
-            }
-
-            List<BsonDocument> docs = obj.Select(x=> x.ToBsonDocument()).ToList();
-
-            var completeTcs = new TaskCompletionSource();
-            var resultTcs = new TaskCompletionSource<MongoResponse>();
-
-            MongoTaskInsert task = new MongoTaskInsert(col, resultTcs, docs);
-            m_queueTasks.Enqueue(task);
-
-            MongoTaskCallback cb = new MongoTaskCallback(completeTcs, resultTcs);
-            m_queueCallbacks.Enqueue(cb);
-
-            await completeTcs.Task;
-
-            MongoResponse res = await resultTcs.Task;
-            return new MongoResult<object>
-            {
-                Success = true,
-                ErrorDesc = string.Empty,
-                Result = null
-            };
-        }
-
-        public async Task<MongoResult<object>> Delete(string dbName, string collName, string filterKey, string filterValue)
-        {
-            var col = GetCollection(dbName, collName);
-            if (col == null)
-            {
-                string str = $"[Delete] cannot find collection, db:{dbName}, col:{collName}";
-                Log.Error(str);
-                return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null };
-            }
-
-            var completeTcs = new TaskCompletionSource();
-            var resultTcs = new TaskCompletionSource<MongoResponse>();
-
-            var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
-            MongoTaskDelete task = new MongoTaskDelete(col, resultTcs, filter);
-            m_queueTasks.Enqueue(task);
-
-            MongoTaskCallback cb = new MongoTaskCallback(completeTcs, resultTcs);
-            m_queueCallbacks.Enqueue(cb);
-
-            await completeTcs.Task;
-            MongoResponse res = await resultTcs.Task;
-            return new MongoResult<object>
-            {
-                Success = res.success,
-                ErrorDesc = res.errorDesc,
-                Result = null
-            };
-        }
-
-        public async Task<MongoResult<T>> Find<T>(string dbName, string collName, string filterKey, string filterValue) where T : class
-        {
-            var col = GetCollection(dbName, collName);
-            if (col == null)
-            {
-                string str = $"[Find] cannot find collection, db:{dbName}, col:{collName}";
-                Log.Error(str);
-                return new MongoResult<T> { ErrorDesc = str, Success = false, Result = null };
-            }
-
-            var completeTcs = new TaskCompletionSource();
-            var resultTcs = new TaskCompletionSource<MongoResponse>();
-
-            var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
-            var task = new MongoTaskFind(col, resultTcs, filter);
-            m_queueTasks.Enqueue(task);
-
-            MongoTaskCallback cb = new MongoTaskCallback(completeTcs, resultTcs);
-            m_queueCallbacks.Enqueue(cb);
-
-            await completeTcs.Task;
-
-            MongoResponse res = await resultTcs.Task;
-
             try
             {
-                var result = res.result.Select(x => BsonSerializer.Deserialize<T>(x)).ToList();
-                return new MongoResult<T>
+                var col = GetCollection(dbName, collName);
+                if (col == null)
                 {
-                    Success = res.success,
-                    ErrorDesc = res.errorDesc,
-                    Result = result
+                    string str = $"[Insert] cannot find collection, db:{dbName}, col:{collName}";
+                    Log.Error(str);
+                    return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null };
+                }
+
+                List<BsonDocument> docs = obj.Select(x => x.ToBsonDocument()).ToList();
+                await col.InsertManyAsync(docs);
+                return new MongoResult<object>
+                {
+                    Success = true,
+                    ErrorDesc = string.Empty,
+                    Result = null
                 };
             }
             catch (Exception ex) 
             {
-                string str = $"[Find] convert bson to object failed db:{dbName}, col:{collName}, ex:{ex}";
+                string str = $"[MongoInsert] execute insert failed, db:{dbName}, col:{collName}, ex:{ex}";
+                Log.Error(str);
+                return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null };
+            }
+        }
+
+        public async Task<MongoResult<object>> Delete(string dbName, string collName, string filterKey, string filterValue)
+        {
+            try
+            {
+                var col = GetCollection(dbName, collName);
+                if (col == null)
+                {
+                    string str = $"[Delete] cannot find collection, db:{dbName}, col:{collName}";
+                    Log.Error(str);
+                    return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null };
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
+                await col.DeleteManyAsync(filter);
+                return new MongoResult<object>
+                {
+                    Success = true,
+                    ErrorDesc = string.Empty,
+                    Result = null
+                };
+            }
+            catch(Exception ex) 
+            {
+                string str = $"[MongoDelete] execute delete failed, db:{dbName}, col:{collName}, ex:{ex}";
+                Log.Error(str);
+                return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null };
+            }
+        }
+
+        public async Task<MongoResult<T>> Find<T>(string dbName, string collName, string filterKey, string filterValue) where T : class
+        {
+            try
+            {
+                var col = GetCollection(dbName, collName);
+                if (col == null)
+                {
+                    string str = $"[Find] cannot find collection, db:{dbName}, col:{collName}";
+                    Log.Error(str);
+                    return new MongoResult<T> { ErrorDesc = str, Success = false, Result = null };
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
+                var result = await col.Find(filter).ToListAsync();
+                var res = result.Select(x => BsonSerializer.Deserialize<T>(x)).ToList();
+                return new MongoResult<T>
+                {
+                    Success = true,
+                    ErrorDesc = string.Empty,
+                    Result = res
+                };
+            }
+            catch (Exception ex)
+            {
+                string str = $"[MongoFind] execute find failed, db:{dbName}, col:{collName}, ex:{ex}";
                 Log.Error(str);
                 return new MongoResult<T> { ErrorDesc = str, Success = false, Result = null };
             }
@@ -270,43 +156,31 @@ namespace ZQ
 
         public async Task<MongoResult<T>> Save<T>(string dbName, string collName, string filterKey, string filterValue, T data) where T : class
         {
-            var col = GetCollection(dbName, collName);
-            if (col == null)
-            {
-                string str = $"[Save] cannot find collection, db:{dbName}, col:{collName}";
-                Log.Error(str);
-                return new MongoResult<T> { ErrorDesc = str, Success = false, Result = null };
-            }
-
-            var completeTcs = new TaskCompletionSource();
-            var resultTcs = new TaskCompletionSource<MongoResponse>();
-
-            var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
-            var replacement = data.ToBsonDocument();
-            var option = new FindOneAndReplaceOptions<BsonDocument> { ReturnDocument = ReturnDocument.After, IsUpsert = true };
-            MongoTaskSave task = new MongoTaskSave(col, resultTcs, filter, replacement, option);
-            m_queueTasks.Enqueue(task);
-
-            MongoTaskCallback cb = new MongoTaskCallback(completeTcs, resultTcs);
-            m_queueCallbacks.Enqueue(cb);
-
-            await completeTcs.Task;
-
-            MongoResponse res = await resultTcs.Task;
-
             try
             {
-                var result = res.result.Select(x => BsonSerializer.Deserialize<T>(x)).ToList();
+                var col = GetCollection(dbName, collName);
+                if (col == null)
+                {
+                    string str = $"[Save] cannot find collection, db:{dbName}, col:{collName}";
+                    Log.Error(str);
+                    return new MongoResult<T> { ErrorDesc = str, Success = false, Result = null };
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
+                var replacement = data.ToBsonDocument();
+                var option = new FindOneAndReplaceOptions<BsonDocument> { ReturnDocument = ReturnDocument.After, IsUpsert = true };
+                var result = await col.FindOneAndReplaceAsync(filter, replacement, option);
+                var res = new List<T>() { BsonSerializer.Deserialize<T>(result) };
                 return new MongoResult<T>
                 {
-                    Success = res.success,
-                    ErrorDesc = res.errorDesc,
-                    Result = result
+                    Success = true,
+                    ErrorDesc = string.Empty,
+                    Result = res
                 };
             }
             catch (Exception ex)
             {
-                string str = $"[Save] convert bson to object failed db:{dbName}, col:{collName}, ex:{ex}";
+                string str = $"[MongoSave] execute save failed, db:{dbName}, col:{collName}, ex:{ex}";
                 Log.Error(str);
                 return new MongoResult<T> { ErrorDesc = str, Success = false, Result = null };
             }
@@ -314,35 +188,33 @@ namespace ZQ
 
         public async Task<MongoResult<object>> Update<T>(string dbName, string collName, string filterKey, string filterValue, string dataKey, T data) where T : class
         {
-            var col = GetCollection(dbName, collName);
-            if (col == null)
+            try
             {
-                string str = $"[Update] cannot find collection, db:{dbName}, col:{collName}";
+                var col = GetCollection(dbName, collName);
+                if (col == null)
+                {
+                    string str = $"[Update] cannot find collection, db:{dbName}, col:{collName}";
+                    Log.Error(str);
+                    return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null };
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
+                var updator = Builders<BsonDocument>.Update.Set(dataKey, data.ToBsonDocument());
+                var option = new UpdateOptions { IsUpsert = true };
+                await col.UpdateOneAsync(filter, updator, option);
+                return new MongoResult<object>
+                {
+                    Success = true,
+                    ErrorDesc = string.Empty,
+                    Result = null
+                };
+            }
+            catch (Exception ex)
+            {
+                string str = $"[MongoUpdate] execute update failed, db:{dbName}, col:{collName}, ex:{ex}";
                 Log.Error(str);
                 return new MongoResult<object> { ErrorDesc = str, Success = false, Result = null };
             }
-
-            var completeTcs = new TaskCompletionSource();
-            var resultTcs = new TaskCompletionSource<MongoResponse>();
-
-            var filter = Builders<BsonDocument>.Filter.Eq(filterKey, filterValue);
-            var updator = Builders<BsonDocument>.Update.Set(dataKey,  data.ToBsonDocument());
-            var option = new UpdateOptions { IsUpsert = true };
-            MongoTaskUpdate task = new MongoTaskUpdate(col, resultTcs, filter, updator, option);
-            m_queueTasks.Enqueue(task);
-
-            MongoTaskCallback cb = new MongoTaskCallback(completeTcs, resultTcs);
-            m_queueCallbacks.Enqueue(cb);
-
-            await completeTcs.Task;
-
-            MongoResponse res = await resultTcs.Task;
-            return new MongoResult<object>
-            {
-                Success = res.success,
-                ErrorDesc = res.errorDesc,
-                Result = null
-            };
         }
 
         private bool Setup()
@@ -405,22 +277,6 @@ namespace ZQ
             return true;
         }
 
-        private void processCallbacks()
-        {
-            if (m_queueCallbacks.Count == 0 || !m_queueCallbacks.TryPeek(out var callback))
-            {
-                return;
-            }
-
-            if (!callback.resultTcs.Task.IsCompleted)
-            {
-                return;
-            }
-
-            m_queueCallbacks.Dequeue();
-            callback.completeTcs.SetResult();
-        }
-
         private IMongoCollection<BsonDocument> GetCollection(string dbName, string collName)
         {
             if (m_collections.TryGetValue(dbName, out var db))
@@ -438,94 +294,6 @@ namespace ZQ
             {
                 return null;
             }
-        }
-
-        private void TaskThread()
-        {
-            while (true)
-            {
-                if (m_queueTasks.Count == 0 || !m_queueTasks.TryDequeue(out var task))
-                {
-                    continue;
-                }
-
-                var t = ExecuteTask(task);
-                t.Wait();
-            }
-        }
-
-        private async Task ExecuteTask(MongoTask task)
-        {
-            try
-            {
-                if (task is MongoTaskInsert taskInsert)
-                {
-                    await MongoInsert(taskInsert);
-                }
-                else if (task is MongoTaskDelete taskDelete)
-                {
-                    await MongoDelete(taskDelete);
-                }
-                else if (task is MongoTaskFind taskFind)
-                {
-                    await MongoFind(taskFind);
-                }
-                else if (task is MongoTaskSave taskSave)
-                {
-                    await MongoSave(taskSave);
-                }
-                else if (task is MongoTaskUpdate taskUpdate)
-                {
-                    await MongoUpdate(taskUpdate);
-                }
-                else
-                {
-                    string str = $"not support mongo task type:{task.GetType()}";
-                    Log.Error(str);
-                    task.resultTcs.SetResult(new MongoResponse { success = false, errorDesc = str, result = null });
-                }
-            }
-            catch (Exception e)
-            {
-                string str = $"execute mongo command failed, type:{task.GetType()}, ex:{e}";
-                Log.Error(str);
-                task.resultTcs.SetResult(new MongoResponse { success = false, errorDesc = str, result = null});
-            }
-        }
-
-        private async Task MongoInsert(MongoTaskInsert task) 
-        {
-            var collection = task.collection;
-            await collection.InsertManyAsync(task.docs);
-            task.resultTcs.SetResult(new MongoResponse { success = true, errorDesc = string.Empty});
-        }
-
-        private async Task MongoDelete(MongoTaskDelete task)
-        {
-            var collection = task.collection;
-            await collection.DeleteManyAsync(task.filter);
-            task.resultTcs.SetResult(new MongoResponse { success = true, errorDesc = string.Empty });
-        }
-
-        private async Task MongoFind(MongoTaskFind task)
-        {
-            var collection = task.collection;
-            var result = await collection.Find(task.filter).ToListAsync();
-            task.resultTcs.SetResult(new MongoResponse { success = true, errorDesc = string.Empty, result = result });
-        }
-
-        private async Task MongoSave(MongoTaskSave task)
-        {
-            var collection = task.collection;
-            var result = await collection.FindOneAndReplaceAsync(task.filter, task.replacement, task.option);
-            task.resultTcs.SetResult(new MongoResponse { success = true, errorDesc = string.Empty, result = new List<BsonDocument> { result } });
-        }
-
-        private async Task MongoUpdate(MongoTaskUpdate task)
-        {
-            var collection = task.collection;
-            await collection.UpdateOneAsync(task.filter, task.updator, task.option);
-            task.resultTcs.SetResult(new MongoResponse { success = true, errorDesc = string.Empty});
         }
     }
 

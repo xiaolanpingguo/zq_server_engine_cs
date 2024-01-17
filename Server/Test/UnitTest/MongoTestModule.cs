@@ -8,17 +8,14 @@ namespace ZQ
         [BsonIgnoreExtraElements]
         public class TestA
         {
-            public string abc { get; set; } = null!;
+            public string indexId { get; set; } = null!;
             public string zq { get; set; } = null!;
             public int code { get; set; }
             public string zq1 { get; set; } = null!;
         }
 
-
-        public class AA
-        {
-            public string profile_id { get; set; } = null!;
-        }
+        const string s_dbName = "zq";
+        const string s_colName = "mytest";
 
         private MongoModule m_mongo;
         public MongoTestModule()
@@ -27,19 +24,14 @@ namespace ZQ
             {
                  new MongoDBSetupConfig.DBInfo
                  {
-                     dbName = "zq",
+                     dbName = s_dbName,
                      collections = new MongoDBSetupConfig.CollectionInfo[]{
                          new MongoDBSetupConfig.CollectionInfo()
                          {
-                             collectionName = "accounts",
-                             indexNames = new string[]{ "SDKUserId", "ProfileId"}
+                             collectionName = s_colName,
+                             indexNames = new string[]{ "indexId"}
 
                          },
-                         new MongoDBSetupConfig.CollectionInfo()
-                         {
-                             collectionName = "players",
-                             indexNames = new string[]{ "ProfileId"}
-                         }
                      }
                  }
             };
@@ -108,13 +100,13 @@ namespace ZQ
         {
             TestA aa = new TestA
             {
-                abc = "333",
+                indexId = "123",
                 zq = "456",
                 code = 999
             };
 
             Console.WriteLine($"will test: MongoInsert");
-            MongoResult<object> result = await m_mongo.Insert<TestA>("zq", "account", new List<TestA> { aa });
+            MongoResult<object> result = await m_mongo.Insert<TestA>(s_dbName, s_colName, new List<TestA> { aa });
             if (!result.Success)
             {
                 Console.WriteLine($"mongo failed:{result.ErrorDesc}");
@@ -129,7 +121,7 @@ namespace ZQ
         private async Task TestDelete()
         {
             Console.WriteLine($"will test: TestDelete");
-            MongoResult<object> result = await m_mongo.Delete("zq", "account", "abc", "333");
+            MongoResult<object> result = await m_mongo.Delete(s_dbName, s_colName, "indexId", "123");
             if (!result.Success)
             {
                 Console.WriteLine($"mongo failed:{result.ErrorDesc}");
@@ -143,7 +135,7 @@ namespace ZQ
         private async Task TestFind()
         {
             Console.WriteLine($"will test: TestFind");
-            MongoResult<TestA> result = await m_mongo.Find<TestA>("zq", "account", "abc", "333");
+            MongoResult<TestA> result = await m_mongo.Find<TestA>(s_dbName, s_colName, "indexId", "123");
             if (!result.Success)
             {
                 Console.WriteLine($"mongo failed:{result.ErrorDesc}");
@@ -153,7 +145,7 @@ namespace ZQ
             Console.WriteLine($"test mongo find success, result:\n");
             foreach (TestA a in result.Result)
             {
-                Console.WriteLine($"{a.abc} : {a.zq} : {a.code}");
+                Console.WriteLine($"{a.indexId} : {a.zq} : {a.code}");
             }
         }
 
@@ -161,18 +153,14 @@ namespace ZQ
         {
             TestA aa = new TestA
             {
-                abc = "123",
+                indexId = "123",
                 zq = "456",
                 code = 888,
                 zq1 = "dwadaw"
             };
 
-            var playerData = new DBPlayerData();
-            var gid = "0b3dae14-09d9-4b75-9b4c-5f0a2a49a603";
-            playerData.ProfileId = gid;
-
             Console.WriteLine($"will test mongo insert");
-            MongoResult<DBPlayerData> result = await m_mongo.Save<DBPlayerData>("zq", "players", "ProfileId", gid, playerData);
+            MongoResult<TestA> result = await m_mongo.Save<TestA>(s_dbName, s_colName, "indexId", "123", aa);
             if (!result.Success)
             {
                 Console.WriteLine($"mongo failed:{result.ErrorDesc}");
@@ -180,9 +168,9 @@ namespace ZQ
             }
 
             Console.WriteLine($"test mongo save success, result:\n");
-            foreach (DBPlayerData a in result.Result)
+            foreach (TestA a in result.Result)
             {
-                //Console.WriteLine($"{a.abc} : {a.zq} : {a.code}");
+                Console.WriteLine($"{a.indexId} : {a.zq} : {a.code}");
             }
         }
 
@@ -190,13 +178,13 @@ namespace ZQ
         {
             TestA aa = new TestA
             {
-                abc = "123",
+                indexId = "123",
                 zq = "456",
                 code = 888,
                 zq1 = "dwadaw"
             };
             Console.WriteLine($"will test mongo update");
-            MongoResult<object> result = await m_mongo.Update("zq", "account", "abc", "123", "zq2", aa);
+            MongoResult<object> result = await m_mongo.Update(s_dbName, s_colName, "indexId", "123", "zq1", aa);
             if (!result.Success)
             {
                 Console.WriteLine($"mongo failed:{result.ErrorDesc}");

@@ -22,7 +22,7 @@ namespace ZQ
 
     public class LobbyServer : Server
     {
-        private const string k_serverConfigName = "../../../Assets/Config/LoginServerConfig.json";
+        private const string k_serverConfigName = "Assets/Config/LoginServerConfig.json";
 
         public LobbyServerConfig Config = null!;
 
@@ -34,6 +34,11 @@ namespace ZQ
 
         public override bool Init(string[] args)
         {
+            if (!base.Init(args))
+            {
+                return false;
+            }
+
             LobbyServerConfig? config = ReadConfig<LobbyServerConfig>(k_serverConfigName);
             if (config == null)
             {

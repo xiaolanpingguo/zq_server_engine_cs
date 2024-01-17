@@ -11,6 +11,7 @@ namespace ZQ
     public class TestServer : Server
     {
         private const string k_testMongoArg = "-test_mongo";
+        private const string k_testRedisArg = "-test_redis";
         private const string k_testClientArg = "-test_client";
         private const string k_testKcpClientArg = "-test_kcpclient";
 
@@ -22,6 +23,11 @@ namespace ZQ
 
         public override bool Init(string[] args)
         {
+            if (!base.Init(args))
+            {
+                return false;
+            }
+
             if (!InitLog())
             {
                 return false;
@@ -45,6 +51,7 @@ namespace ZQ
             foreach (var arg in args)
             {
                 if (arg == k_testMongoArg) AddModule<MongoTestModule>();
+                if (arg == k_testRedisArg) AddModule<RedisTestModule>();
                 if (arg == k_testClientArg) AddModule<ClientTestModule>();
                 if (arg == k_testKcpClientArg) AddModule<KcpClientTestModule>();
             }
