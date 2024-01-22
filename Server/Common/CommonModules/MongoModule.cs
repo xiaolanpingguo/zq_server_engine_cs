@@ -257,11 +257,14 @@ namespace ZQ
                         }
 
                         var collection = m_client.GetDatabase(db.dbName).GetCollection<BsonDocument>(colName);
-                        foreach (var name in indexList)
+                        if (indexList != null)
                         {
-                            IndexKeysDefinition<BsonDocument> indexKeysDefinition = Builders<BsonDocument>.IndexKeys.Ascending(name);
-                            CreateIndexOptions option = new CreateIndexOptions{ Unique = true };
-                            collection.Indexes.CreateOne(new CreateIndexModel<BsonDocument>(indexKeysDefinition, option));
+                            foreach (var name in indexList)
+                            {
+                                IndexKeysDefinition<BsonDocument> indexKeysDefinition = Builders<BsonDocument>.IndexKeys.Ascending(name);
+                                CreateIndexOptions option = new CreateIndexOptions { Unique = true };
+                                collection.Indexes.CreateOne(new CreateIndexModel<BsonDocument>(indexKeysDefinition, option));
+                            }
                         }
 
                         collDic[colName] = collection;

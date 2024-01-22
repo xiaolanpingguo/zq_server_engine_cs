@@ -1,5 +1,11 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
+using MongoDB.Bson.Serialization.Attributes;
 using ZQ.Mongo;
+using MongoDB.Bson.Serialization.Serializers;
+using System;
+using System.Drawing;
+using MongoDB.Bson.Serialization;
 
 namespace ZQ
 {
@@ -14,8 +20,27 @@ namespace ZQ
             public string zq1 { get; set; } = null!;
         }
 
+        [BsonIgnoreExtraElements]
+        public class TestBsonBin
+        {
+            public string indexId { get; set; } = null!;
+            public string profileId { get; set; } = null!;
+            public byte[] bin { get; set; } = null!;
+        }
+
+        [BsonIgnoreExtraElements]
+        public class TestBsonBin1
+        {
+            public string indexId { get; set; } = null!;
+            public string profileId { get; set; } = null!;
+            public TestA bin { get; set; } = null!;
+        }
+
         const string s_dbName = "zq";
         const string s_colName = "mytest";
+        const string s_bsonColName = "bsontest";
+
+        private IMongoCollection<BsonDocument> m_bsonCollection;
 
         private MongoModule m_mongo;
         public MongoTestModule()
@@ -32,6 +57,10 @@ namespace ZQ
                              indexNames = new string[]{ "indexId"}
 
                          },
+                         new MongoDBSetupConfig.CollectionInfo()
+                         {
+                             collectionName = s_bsonColName
+                         },
                      }
                  }
             };
@@ -46,6 +75,11 @@ namespace ZQ
             };
 
             m_mongo = new MongoModule(mongoConfig);
+
+            string url = "mongodb://127.0.0.1:27017";
+            var mongoClient = new MongoClient(url);
+            var mongodatabase = mongoClient.GetDatabase(s_dbName);
+            m_bsonCollection = mongodatabase.GetCollection<BsonDocument>(s_bsonColName);
         }
 
         public bool Init()
@@ -93,6 +127,54 @@ namespace ZQ
             if (key.Key == ConsoleKey.D5)
             {
                 TestUpdate().FireAndForget();
+            }
+            if (key.Key == ConsoleKey.D6)
+            {
+                TestBson().FireAndForget();
+            }
+        }
+
+        private async Task TestBson()
+        {
+            try
+            {
+                TestA testA = new TestA()
+                {
+                    indexId = "12345678912345678912xy",
+                    zq = "45678912312345678912x",
+                    code = 23133,
+                    zq1 = "78912345612345678912zzz",
+                };
+
+                TestBsonBin aa = new TestBsonBin
+                {
+                    indexId = "456",
+                    profileId = "dwadwadwa",
+                    bin = BsonSerializeHelper.Serialize(testA),
+                };
+
+
+                await m_mongo.Insert<TestBsonBin>(s_dbName, s_bsonColName, new List<TestBsonBin> { aa });
+                MongoResult<TestBsonBin> result = await m_mongo.Find<TestBsonBin>(s_dbName, s_bsonColName, "indexId", "123");
+                if (!result.Success)
+                {
+                    Console.WriteLine($"mongo failed:{result.ErrorDesc}");
+                    return;
+                }
+
+                if (result.Result.Count > 0)
+                {
+                    byte[] desTest = result.Result[0].bin;
+                    TestA desaa = BsonSerializer.Deserialize<TestA>(desTest);
+                    Console.WriteLine($"TestBson find success, result:{desaa.ToJson().ToString()}");
+                }
+ 
+
+                Console.WriteLine($"TestBson success.");
+            }
+            catch (Exception ex) 
+            {
+                Console.WriteLine($"TestBson failed, ex:{ex}");
             }
         }
 
