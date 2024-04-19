@@ -6,9 +6,48 @@ using MongoDB.Bson.Serialization.Serializers;
 using System;
 using System.Drawing;
 using MongoDB.Bson.Serialization;
+using static ZQ.DBOperator;
 
 namespace ZQ
 {
+    [BsonIgnoreExtraElements]
+    public class DBBaseItem
+    {
+        public string Id;
+        public int Count;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class DBOperator : DBBaseItem
+    {
+        public class DBLoadoutsData
+        {
+            public string OperatorId;
+            public int Category;
+            public int DomainRarity;
+        }
+
+        public int TrackLevel;
+        public int TrackExp;
+        public List<DBLoadoutsData> Loadouts;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class DBBattlePass
+    {
+        public bool Active;
+        public int TrackLevel;
+        public int TrackExp;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class DBPlayerInventory
+    {
+        public Dictionary<string, DBBaseItem> BaseItems;
+        public Dictionary<string, DBOperator> Operators;
+        public DBBattlePass BattlePass;
+    }
+
     public class MongoTestModule : IModule
     {
         [BsonIgnoreExtraElements]
@@ -131,6 +170,10 @@ namespace ZQ
             if (key.Key == ConsoleKey.D6)
             {
                 TestBson().FireAndForget();
+            }
+            if (key.Key == ConsoleKey.D7)
+            {
+                TestInsertPlayerInventory().FireAndForget();
             }
         }
 
@@ -275,6 +318,55 @@ namespace ZQ
             else
             {
                 Console.WriteLine($"test mongo update success.");
+            }
+        }
+
+        private async Task TestInsertPlayerInventory()
+        {
+            Console.WriteLine($"will test: TestInsertPlayerInventory");
+
+            DBPlayerInventory inventory = new DBPlayerInventory();
+            {
+                inventory.BattlePass = new DBBattlePass();
+                inventory.BattlePass.TrackLevel = 1;
+                inventory.BattlePass.Active = false;
+                inventory.BattlePass.TrackExp = 100;
+            }
+            {
+                inventory.BaseItems = new();
+                DBBaseItem item1 = new DBBaseItem();
+                item1.Count = 1;
+                item1.Id = "item1";
+                inventory.BaseItems.Add("item1", item1);
+            }
+            {
+                inventory.Operators = new();
+
+                DBOperator operator1 = new DBOperator();
+                operator1.Id = "operator1";
+                operator1.Count = 1;
+                operator1.TrackExp = 100;
+                operator1.TrackLevel = 1;
+
+                operator1.Loadouts = new List<DBLoadoutsData>();
+                DBOperator.DBLoadoutsData loadout1 = new();
+                loadout1.Category = 1;
+                loadout1.DomainRarity = 2;
+                loadout1.OperatorId = "operator1";
+
+                operator1.Loadouts.Add(loadout1);
+                inventory.Operators.Add(operator1.Id, operator1);
+            }
+
+            MongoResult<object> result = await m_mongo.Insert<DBPlayerInventory>(s_dbName, s_colName, new List<DBPlayerInventory> { inventory });
+            if (!result.Success)
+            {
+                Console.WriteLine($"mongo failed:{result.ErrorDesc}");
+                return;
+            }
+            else
+            {
+                Console.WriteLine($"test mongo TestInsertPlayerInventory success.");
             }
         }
     }

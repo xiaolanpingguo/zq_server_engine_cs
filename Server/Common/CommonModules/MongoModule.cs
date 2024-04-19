@@ -221,6 +221,21 @@ namespace ZQ
         {
             try
             {
+                /*
+                 *  can init this way too
+                 *  "DBOptions":"{\"authMechanism\": \"SCRAM-SHA-1\", \"LocalthresholdMS\":5,\"maxPoolSize \":1024,\"readPreference\":\"secondaryPreferred\",\"serverSelectionTimeoutMS\":2000, \"waitQueueMultiple\":3,\"waitQueueSize\":3072,\"waitQueueTimeoutMS\":1000}"
+                    connectionString += $"{address}/";
+                    if (!string.IsNullOrEmpty(optionsStr))
+                    {
+                        var joptions = JObject.Parse(optionsStr);
+                        var options = joptions.Properties()
+                            .Select(p => $"{p.Name}={HttpUtility.UrlEncode(p.Value.ToString())}");
+                        connectionString += "?" + string.Join("&", options);
+                    }
+
+                    var settings = MongoClientSettings.FromConnectionString(connectionString);
+                    var mongoClient = new MongoClient(settings);
+                 */
                 string strSrv = string.IsNullOrEmpty(m_config.srv) ? "" : "+srv";
                 string host = m_config.ip;
                 ushort port = m_config.port;
