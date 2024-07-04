@@ -12,14 +12,11 @@ namespace ZQ
     {
         public string externalIp { get; set; } = null!;
         public ushort externalPort { get; set; }
-
-        public string masterIp { get; set; } = null!;
-        public ushort masterPort { get; set; }
     }
 
     public class DedicatedServer : Server
     {
-        private const string k_serverConfigName = "Assets/Config/LoginServerConfig.json";
+        private const string k_serverConfigName = "Assets/Config/DedicatedServerConfig.json";
 
         public DedicatedServerConfig Config = null!;
 
@@ -64,8 +61,6 @@ namespace ZQ
         protected override bool RegisterModules(string[] args)
         {
             if (!AddModule<TimerModule>()) return false;
-
-            // if (!AddModule<Dedicate2MasterModule>(this, Config.masterIp, Config.masterPort)) return false;
             if (!AddModule<C2DedicatedModule>(this, Config.externalIp, Config.externalPort)) return false;
 
             return true;

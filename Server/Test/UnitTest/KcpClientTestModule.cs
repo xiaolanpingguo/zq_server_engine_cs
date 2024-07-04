@@ -1,108 +1,106 @@
 ﻿using C2S;
 using MemoryPack;
 using System.Net;
-using ZQ.S2S;
+using Google.Protobuf;
+using kcp2k;
+using C2DS;
+using System.Net.NetworkInformation;
+
 
 namespace ZQ
 {
-    public enum C2DSMessageId : ushort
+    public class TestKcpClient
     {
-        C2DS_LoadingProgress = 501,
-        C2DS_FrameMessage = 502,
-        DS2C_AdjustUpdateTime = 503,
-        DS2C_CheckHashFail = 504,
-        DS2C_OneFrameInputs = 505,
-
-        C2DS_PingReq = 506,
-        C2DS_PingRes = 507,
-    }
-
-    [MemoryPackable]
-    public partial class C2DS_PingReq
-    {
-    }
-
-    [MemoryPackable]
-    public partial class C2DS_PingRes
-    {
-        public long Time { get; set; }
-    }
-
-    public class KcpClient
-    {
-        private KcpService m_service;
+        private KcpClient m_network;
         private ulong m_channelId = 0;
         private IPEndPoint m_endPoint;
 
         private TimerModule m_timerComponent;
-        private C2DSMessageDispatcher m_messageDispatcher;
+        //private C2DSMessageDispatcher m_messageDispatcher;
 
-        public KcpClient(IPEndPoint endPoint, ulong channelId) 
+        public TestKcpClient(IPEndPoint endPoint, ulong channelId)
         {
-            m_channelId = channelId;
-            m_endPoint = endPoint;
-            m_service = new KcpService();
-            m_service.ConnectSuccessCallback = OnConnectSuccess;
-            m_service.CannotConnectServerCallback = OnCannotConnectServer;
-            m_service.DataReceivedCallback = OnDataReceived;
+            kcp2k.Log.Info = ZQ.Log.Info;
+            kcp2k.Log.Warning = ZQ.Log.Warning;
+            kcp2k.Log.Error = ZQ.Log.Error;
+            KcpConfig config = new KcpConfig(
+               // force NoDelay and minimum interval.
+               // this way UpdateSeveralTimes() doesn't need to wait very long and
+               // tests run a lot faster.
+               NoDelay: true,
+               // not all platforms support DualMode.
+               // run tests without it so they work on all platforms.
+               DualMode: false,
+               Interval: 1, // 1ms so at interval code at least runs.
+               Timeout: 10000,
 
-            m_timerComponent = new TimerModule();
+               // large window sizes so large messages are flushed with very few
+               // update calls. otherwise tests take too long.
+               SendWindowSize: Kcp.WND_SND * 1000,
+               ReceiveWindowSize: Kcp.WND_RCV * 1000,
 
-            m_messageDispatcher = new C2DSMessageDispatcher(m_service);
-            //m_messageDispatcher.RegisterMessage((ushort)C2S_MSG_ID.IdC2LLoginRes, typeof(C2LLoginRes));
+               // congestion window _heavily_ restricts send/recv window sizes
+               // sending a max sized message would require thousands of updates.
+               CongestionWindow: false,
 
-            m_service.CreateChannel(m_channelId, m_endPoint);
+               // maximum retransmit attempts until dead_link detected
+               // default * 2 to check if configuration works
+               MaxRetransmits: Kcp.DEADLINK * 2
+            );
+
+            m_network = new KcpClient(OnConnected, OnDataReceived, OnDisconnect, OnError, config);
+            m_network.Connect(endPoint.Address.ToString(), (ushort)endPoint.Port);
+            //m_messageDispatcher = new C2DSMessageDispatcher(m_network);
+           // m_messageDispatcher.RegisterMessage((ushort)C2DS_MSG_ID.IdC2DsPingRes, typeof(C2DSPingRes), OnMsgPingRes);
         }
 
         public void Update(long timeNow)
         {
             m_timerComponent.Update(timeNow);
-            m_service.Update();
-            m_messageDispatcher.Update(timeNow);
+            m_network.Tick();
+            //m_messageDispatcher.Update(timeNow);
+        }
+        private void OnConnected()
+        {
+            Log.Info($"a client has connected to dedicated server.");
         }
 
-        private void OnConnectSuccess(uint localConn, uint remoteConn, IPEndPoint ipEndPoint)
+        private void OnDataReceived(ArraySegment<byte> data, KcpChannel channel)
         {
-            if (localConn == m_channelId)
+            //m_messageDispatcher.DispatchMessage(0, data, channel);
+        }
+
+        private void OnDisconnect()
+        {
+            Log.Warning($"client has disconnected to server.");
+        }
+
+        private void OnError(ErrorCode ec, string reason)
+        {
+            Log.Info($"a server error has occurred, error:{ec}, reason:{reason}");
+        }
+
+        private void OnMsgPingRes(ushort messageId, int rpcId, IMessage message)
+        {
+            if (message == null || message is not C2DSPingRes res)
             {
-                Log.Info($"connect to dedicated server success, localConn:{localConn}, remoteConn:{remoteConn}, ip:{ipEndPoint}");
-                m_timerComponent.AddTimer(3000, PING, null, false);
+                Log.Error($"OnMsgPingRes error: cannot convert message to C2DSPingRes");
+                return;
             }
-            else
-            {
-                Log.Error($"error channel, id:{localConn}, ip:{ipEndPoint}");
-            }
-        }
 
-        private void OnCannotConnectServer(ulong channelId, IPEndPoint ipEndPoint, int error)
-        {
-            Log.Warning($"Client: cannot connect server, id:{channelId}, ip:{ipEndPoint}, error:{error}");
-            if (channelId == m_channelId)
-            {
-                m_timerComponent.AddTimer(3000, TryToReconnectToServer, null, false);
-            }
-        }
-
-        private void OnDataReceived(ulong channelId, MessageBuffer buffer)
-        {
-            m_messageDispatcher.DispatchMessage(channelId, buffer);
-        }
-
-
-        private void TryToReconnectToServer(object arg)
-        {
-            m_service.CreateChannel(m_channelId, m_endPoint);
+            long clientTime = res.ClientTime;
+            //long serverTime = res.ServerTime;
+            long now = TimeHelper.TimeStampNowMs();
+            int ping = (int)(now - clientTime);
+            Log.Info($"Ping:{ping}");
         }
 
         private void PING(object arg)
         {
-            if (!m_service.IsChannelOpen(m_channelId))
-            {
-                return;
-            }
-
-            C2DS_PingReq req = new C2DS_PingReq();
-            m_messageDispatcher.Send(req, m_channelId, (ushort)C2DSMessageId.C2DS_PingReq);
+            //C2DS.C2DSPingReq req = new C2DS.C2DSPingReq();
+            //req.ProfileId = "1234";
+            //req.ClientTime = TimeHelper.TimeStampNowMs();
+            //Send(req, (ushort)C2DS.C2DS_MSG_ID.IdC2DsPingReq);
         }
     }
 
@@ -110,7 +108,7 @@ namespace ZQ
     {
         private int m_clientNum = 1;
         private IPEndPoint m_serverEndPoint;
-        private List<KcpClient> m_clients = null!;
+        private List<TestKcpClient> m_clients = null!;
 
         public KcpClientTestModule(string loginIp, ushort port, int clientNum = 1)
         {
@@ -120,11 +118,11 @@ namespace ZQ
 
         public bool Init()
         {
-            m_clients = new List<KcpClient>(m_clientNum);
+            m_clients = new List<TestKcpClient>(m_clientNum);
             ulong id = 0;
             for (int i = 0; i < m_clientNum; ++i)
             {
-                m_clients.Add(new KcpClient(m_serverEndPoint, id++));
+                m_clients.Add(new TestKcpClient(m_serverEndPoint, id++));
             }
 
             return true;

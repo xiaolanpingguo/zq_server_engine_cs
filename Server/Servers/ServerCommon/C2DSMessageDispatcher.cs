@@ -1,13 +1,10 @@
 ﻿using System;
-using System.IO;
-using System.Net;
-using System.Reflection;
-using System.Reflection.PortableExecutable;
-using System.Threading.Channels;
 using Amazon.Runtime;
 using Google.Protobuf;
+using System.Threading.Tasks;
 using Google.Protobuf.Compiler;
-using MemoryPack;
+using kcp2k;
+
 
 namespace ZQ
 {
@@ -17,9 +14,9 @@ namespace ZQ
         {
             public int rpcId;
             public int messageId;
-            public readonly TaskCompletionSource<object?>? tcs;
+            public readonly TaskCompletionSource<IMessage?>? tcs;
             public long rpcTimestampMs;
-            public RPCData(int rpcId, int messageId, TaskCompletionSource<object?>? tcs, long rpcTimestampMs)
+            public RPCData(int rpcId, int messageId, TaskCompletionSource<IMessage?>? tcs, long rpcTimestampMs)
             {
                 this.rpcId = rpcId;
                 this.messageId = messageId;
@@ -32,19 +29,19 @@ namespace ZQ
         private const int k_messageIdSize = 2;
         private const int k_rpcIdSize = 4;
         private const int k_headSize = k_packetSize + k_messageIdSize + k_rpcIdSize;
-        private const int k_maxSize = 1024 * 16;
+        private const int k_maxSize = 1024 * 32;
         private const int k_rpcTimeoutMs = 10000;
 
-        private int m_rpcId = 0; 
+        private int m_rpcId = 0;
 
         private Dictionary<ushort, Type> m_messageTypes = new();
-        private Dictionary<ushort, Action<ushort, ulong, int, object>> m_messageHandlers= new();
+        private Dictionary<ushort, Action<ushort, int, int, IMessage?>> m_messageHandlers = new();
         private Dictionary<int, RPCData> m_rpcRequests = new();
-        private readonly KcpService m_service;
+        private readonly KcpServer m_network;
 
-        public C2DSMessageDispatcher(KcpService service)
+        public C2DSMessageDispatcher(KcpServer network)
         {
-            m_service = service;
+            m_network = network;
         }
 
         public bool IsMessageRegistered(ushort messageId)
@@ -57,7 +54,7 @@ namespace ZQ
             return false;
         }
 
-        public bool RegisterMessage(ushort messageId, Type type, Action<ushort, ulong, int, object>? handler = null)
+        public bool RegisterMessage(ushort messageId, Type type, Action<ushort, int, int, IMessage?>? handler = null)
         {
             if (m_messageTypes.ContainsKey(messageId) || m_messageHandlers.ContainsKey(messageId)) 
             {
@@ -73,48 +70,43 @@ namespace ZQ
             return true;
         }
 
-        public bool Response(object packet, ulong channelId, ushort messageId, int rpcId)
+        public bool Response(IMessage packet, int connectionId, ushort messageId, int rpcId)
         {
             if (packet == null)
             {
                 return false;
             }
 
-            return Send(packet, channelId, messageId, rpcId);
+            return Send(packet, connectionId, messageId, rpcId);
         }
 
-        public bool Send(object packet, ulong channelId, ushort messageId, int rpcId = -1)
+        public bool Send(IMessage packet, int connectionId, ushort messageId, int rpcId = -1)
         {
             if (packet == null)
             {
                 return false;
             }
-
             try
             {
-                byte[] packetBytes = MemoryPackHelper.Serialize(packet);
-                if (packetBytes == null) 
-                {
-                    return false;
-                }
+                byte[] packetBytes = packet.ToByteArray();
                 MessageBuffer buffer = Serialize(packetBytes, messageId, rpcId);
                 if (buffer == null)
                 {
                     return false;
                 }
 
-                m_service.Send(channelId, buffer);
+                m_network.Send(connectionId, buffer.GetBuffer(), KcpChannel.Reliable);
 
                 return true;
             }
-            catch (Exception e) 
+            catch (Exception e)
             {
-                Log.Error($"send packet failed, ex, {e.Message}");
+                Log.Error($"c2s: send data failed, connectionId:{connectionId}, messageId:{messageId}, packet:{packet.GetType().Name}, ex: {e.Message}");
                 return false;
             }
         }
 
-        public async Task<object?> SendAsync(object packet, ulong channelId, ushort messageId)
+        public async Task<IMessage?> SendAsync(IMessage packet, int connectionId, ushort messageId)
         {
             if (packet == null)
             {
@@ -123,20 +115,16 @@ namespace ZQ
 
             try
             {
-                byte[] packetBytes = MemoryPackHelper.Serialize(packet);
-                if (packetBytes == null)
-                {
-                    return null;
-                }
+                byte[] packetBytes = packet.ToByteArray();
                 MessageBuffer buffer = Serialize(packetBytes, messageId, m_rpcId);
                 if (buffer == null)
                 {
                     return null;
                 }
 
-                m_service.Send(channelId, buffer);
+                m_network.Send(connectionId, buffer.GetBuffer(), KcpChannel.Reliable);
 
-                var tcs = new TaskCompletionSource<object?>();
+                var tcs = new TaskCompletionSource<IMessage?>();
 
                 RPCData rPCData = new RPCData(m_rpcId, messageId, tcs, TimeHelper.TimeStampNowMs());
                 m_rpcRequests[m_rpcId++] = rPCData;
@@ -158,67 +146,60 @@ namespace ZQ
                 return;
             }
 
-            foreach(var pair in m_rpcRequests)
+            foreach (var pair in m_rpcRequests)
             {
                 RPCData data = pair.Value;
                 if (data == null)
                 {
                     continue;
                 }
-
                 if (timeNow - data.rpcTimestampMs >= k_rpcTimeoutMs)
                 {
-                    Log.Warning($"MessageDispatcher: rpc timeout, messageId:{data.messageId}, rpcId:{data.rpcId}");
+                    Log.Warning($"C2SMessageDispatcher:rpc timeout, messageId:{data.messageId}, rpcId:{data.rpcId}");
                     m_rpcRequests.Remove(pair.Key);
                     data.tcs?.TrySetResult(null);
                 }
             }
         }
 
-        public void DispatchMessage(ulong channelId, MessageBuffer buffer) 
+        public void DispatchMessage(int connectionId, ArraySegment<byte> buffer, KcpChannel channel) 
         {
             try
             {
-                while (buffer.GetActiveSize() > 0) 
+                ushort messageId;
+                int rpcId;
+                byte[]? packetBytes;
+                if (!Deserialize(buffer, connectionId, out messageId, out rpcId, out packetBytes))
                 {
-                    ushort messageId;
-                    int rpcId;
-                    byte[]? packetBytes;
-                    if (!Deserialize(buffer, channelId, out messageId, out rpcId, out packetBytes))
-                    {
-                        return;
-                    }
+                    return;
+                }
 
-                    if (!m_messageTypes.TryGetValue(messageId, out Type? type))
-                    {
-                        Log.Error($"cannot find message type by id:{messageId}");
-                        return;
-                    }
+                if (!m_messageTypes.TryGetValue(messageId, out Type? type))
+                {
+                    Log.Error($"cannot find message type by id:{messageId}");
+                    return;
+                }
 
-                    object packet = MemoryPackHelper.Deserialize(type, packetBytes);
-                    if (packet == null)
-                    {
-                        Log.Error($"DispatchMessage: MemoryPackHelper Deserialize failed, message id:{messageId}, type:{type.Name}");
-                        return;
-                    }
+                IMessage? message = (IMessage?)Activator.CreateInstance(type);
+                IMessage? packet = message?.Descriptor.Parser.ParseFrom(packetBytes);
 
-                    if (m_rpcRequests.Count == 0 || !m_rpcRequests.TryGetValue(rpcId, out var rpcData))
+                if (m_rpcRequests.Count == 0 || !m_rpcRequests.TryGetValue(rpcId, out var rpcData))
+                {
+                    if (!m_messageHandlers.TryGetValue(messageId, out var handler))
                     {
-                        if (!m_messageHandlers.TryGetValue(messageId, out var handler))
-                        {
-                            Log.Warning($"cannot find message handler by id:{messageId}");
-                            return;
-                        }
-                        else
-                        {
-                            handler?.Invoke(messageId, channelId, rpcId, packet);
-                        }
+                        Log.Error($"both message and rcp request cannot be found, id:{messageId}");
+                        m_network.Disconnect(connectionId);
+                        return;
                     }
                     else
                     {
-                        m_rpcRequests.Remove(rpcId);
-                        rpcData?.tcs?.SetResult(packet);
+                        handler?.Invoke(messageId, connectionId, rpcId, packet);
                     }
+                }
+                else
+                {
+                    m_rpcRequests.Remove(rpcId);
+                    rpcData?.tcs?.SetResult(packet);
                 }
             }
             catch (Exception e)
@@ -252,58 +233,39 @@ namespace ZQ
             return memoryBuffer;
         }
 
-        private bool Deserialize(MessageBuffer buffer, ulong channelId, out ushort messageId, out int rpcId, out byte[]? packetBuffer)
+        private bool Deserialize(ArraySegment<byte> data, int connectionId, out ushort messageId, out int rpcId, out byte[]? packetBuffer)
         {
             do
             {
-                if (buffer.GetActiveSize() <= k_headSize)
+                if (data.Array == null || data.Count <= k_headSize)
                 {
                     break;
                 }
 
-                // packet length
-                byte[] packetLengthBytes = new byte[k_packetSize];
-                Array.Copy(buffer.GetBuffer(), buffer.GetReadPos(), packetLengthBytes, 0, packetLengthBytes.Length);
-                int packetSize = BitConverter.ToInt32(packetLengthBytes, 0);
+                int offset = data.Offset;
+                int packetSize = BitConverter.ToInt32(data.Array, offset);
                 if (packetSize > k_maxSize)
                 {
-                    m_service.OnError(channelId, NetworkError.ERR_KcpDeserializePacketSizeError);
+                    string errorDesc = $"recv packet size error: {packetSize}";
+                    Log.Error(errorDesc);
+                    m_network.Disconnect(connectionId);
                     break;
                 }
-
-                if (buffer.GetBufferSize() < k_headSize + packetSize)
-                {
-                    buffer.EnsureFreeSpace();
-                    break;
-                }
-
-                buffer.ReadCompleted(packetLengthBytes.Length);
+                offset += k_packetSize;
 
                 // message id
-                byte[] messageIdBytes = new byte[k_messageIdSize];
-                Array.Copy(buffer.GetBuffer(), buffer.GetReadPos(), messageIdBytes, 0, messageIdBytes.Length);
-                messageId = BitConverter.ToUInt16(messageIdBytes, 0);
-                buffer.ReadCompleted(messageIdBytes.Length);
+                messageId = BitConverter.ToUInt16(data.Array, offset);
+                offset += k_messageIdSize;
 
                 // rpc id
-                byte[] rpcIdBytes = new byte[k_rpcIdSize];
-                Array.Copy(buffer.GetBuffer(), buffer.GetReadPos(), rpcIdBytes, 0, rpcIdBytes.Length);
-                rpcId = BitConverter.ToInt32(rpcIdBytes, 0);
-                buffer.ReadCompleted(rpcIdBytes.Length);
-
-                // check the remain size
-                if (buffer.GetActiveSize() < packetSize)
-                {
-                    break;
-                }
+                rpcId = BitConverter.ToInt32(data.Array, offset);
+                offset += k_rpcIdSize;
 
                 // packet
                 byte[] packageBytes = new byte[packetSize];
-                Array.Copy(buffer.GetBuffer(), buffer.GetReadPos(), packageBytes, 0, packageBytes.Length);
+                Buffer.BlockCopy(data.Array, offset, packageBytes, 0, packageBytes.Length);
                 packetBuffer = packageBytes;
-                buffer.ReadCompleted(packageBytes.Length);
 
-                buffer.Normalize();
                 return true;
             } while (false);
 

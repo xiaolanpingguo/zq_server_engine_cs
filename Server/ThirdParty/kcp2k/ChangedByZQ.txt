@@ -1,0 +1,4 @@
+1: kcp2k.Tests has deleted due to compile error 
+2: Changed: Common.GenerateCookie() due to compile warnning: 
+   RNGCryptoServiceProvider is obsolete. To generate a random number, use one of the RandomNumberGenerator static methods instead.
+3: KcpServer.cs:222 comments:Log.Info($"[KCP] Server: ReceiveFrom failed: {e}");

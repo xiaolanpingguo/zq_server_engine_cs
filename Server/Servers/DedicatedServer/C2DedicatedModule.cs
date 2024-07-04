@@ -1,7 +1,8 @@
 ﻿using C2S;
+using Google.Protobuf;
+using kcp2k;
 using System.Net;
-using System.Threading.Channels;
-using ZQ.S2S;
+
 
 namespace ZQ
 {
@@ -10,12 +11,12 @@ namespace ZQ
         const int k_roomPlayersCount = 1;
 
         private readonly DedicatedServer m_server = null!;
-        private KcpService m_service = null!;
+        private KcpServer m_network = null!;
         private C2DSMessageDispatcher m_messageDispatcher = null!;
 
         private IPEndPoint m_endPoint;
 
-        private Dictionary<ulong, Room> m_playerRoom = new();
+        private Dictionary<int, Room> m_playerRoom = new();
         private List<Room> m_rooms = new List<Room>();
 
         public C2DedicatedModule(DedicatedServer server, string ip, ushort port)
@@ -26,20 +27,44 @@ namespace ZQ
 
         public bool Init()
         {
-            m_service = new KcpService(m_endPoint);
-            m_service.AcceptCallback = OnClientAcccept;
-            m_service.DataReceivedCallback = OnDataReceived;
-            m_service.ClientDisconnectCallback = OnClientDisconnect;
+            kcp2k.Log.Info = ZQ.Log.Info;
+            kcp2k.Log.Warning = ZQ.Log.Warning;
+            kcp2k.Log.Error = ZQ.Log.Error;
+            KcpConfig config = new KcpConfig(
+                // force NoDelay and minimum interval.
+               // this way UpdateSeveralTimes() doesn't need to wait very long and
+               // tests run a lot faster.
+               NoDelay: true,
+               // not all platforms support DualMode.
+               // run tests without it so they work on all platforms.
+               DualMode: false,
+               Interval: 1, // 1ms so at interval code at least runs.
+               Timeout: 10000,
 
-            m_messageDispatcher = new C2DSMessageDispatcher(m_service);
+               // large window sizes so large messages are flushed with very few
+               // update calls. otherwise tests take too long.
+               SendWindowSize: Kcp.WND_SND * 1000,
+               ReceiveWindowSize: Kcp.WND_RCV * 1000,
 
+               // congestion window _heavily_ restricts send/recv window sizes
+               // sending a max sized message would require thousands of updates.
+               CongestionWindow: false,
+
+               // maximum retransmit attempts until dead_link detected
+               // default * 2 to check if configuration works
+               MaxRetransmits: Kcp.DEADLINK * 2
+            );
+
+            m_network = new KcpServer(OnClientAcccept, OnDataReceived, OnClientDisconnect, OnServerError, config);
+            m_network.Start((ushort)m_endPoint.Port);
+            m_messageDispatcher = new C2DSMessageDispatcher(m_network);
             Log.Info($"dedicated server has started, ip:{m_endPoint}");
             return true;
         }
 
         public bool Update(long timeNow)
         {
-            m_service.Update();
+            m_network.Tick();
             m_messageDispatcher.Update(timeNow);
             foreach(Room room in m_rooms)
             {
@@ -63,11 +88,11 @@ namespace ZQ
             return false;
         }
 
-        private void OnClientAcccept(ulong channelId, IPEndPoint ipEndPoint)
+        private void OnClientAcccept(int connectionId)
         {
-            Log.Info($"a client has connected to dedicated server, id:{channelId}, ip:{ipEndPoint}");
+            Log.Info($"a client has connected to dedicated server, id:{connectionId}");
 
-            if (m_playerRoom.ContainsKey(channelId))
+            if (m_playerRoom.ContainsKey(connectionId))
             {
                 return;
             }
@@ -91,27 +116,34 @@ namespace ZQ
             }
 
             AuthorityPlayer player = new AuthorityPlayer();
-            player.ChannelId = channelId;
-            player.ProfileId = channelId.ToString();
+            player.ConnectionId = connectionId;
             room.AddPlayer(player);
-            m_playerRoom[channelId] = room;
+            m_playerRoom[connectionId] = room;
         }
 
-        private void OnDataReceived(ulong channelId, MessageBuffer buffer)
+        private void OnDataReceived(int connectionId, ArraySegment<byte> data, KcpChannel channel)
         {
-            m_messageDispatcher.DispatchMessage(channelId, buffer);
+            m_messageDispatcher.DispatchMessage(connectionId, data, channel);
         }
 
-        private void OnClientDisconnect(ulong channelId, IPEndPoint ipEndPoint, int error)
+        private void OnClientDisconnect(int connectionId)
         {
-            Log.Info($"a server has disconnected to dedicated server, id:{channelId}, ip:{ipEndPoint}, error:{error}");
+            IPEndPoint ipEndPoint = m_network.GetClientEndPoint(connectionId);
+            Log.Info($"a client has disconnected to dedicated server, id:{connectionId}, ip:{ipEndPoint}");
         }
 
-        private void OnRoomMessage(ushort messageId, ulong channelId, int rpcId, object message)
+        private void OnServerError(int connectionId, ErrorCode ec, string reason)
         {
-            if (m_playerRoom.TryGetValue(channelId, out var room)) 
+            IPEndPoint ipEndPoint = m_network.GetClientEndPoint(connectionId);
+            Log.Info($"a server error has occurred on dedicated server, id:{connectionId}, ec:{ipEndPoint}, error:{ec}, reason:{reason}");
+            m_network.Disconnect(connectionId);
+        }
+
+        private void OnRoomMessage(ushort messageId, int connectionId, int rpcId, IMessage? message)
+        {
+            if (m_playerRoom.TryGetValue(connectionId, out var room)) 
             {
-                room.OnMessage(messageId, channelId, rpcId, message);
+                room.OnMessage(messageId, connectionId, rpcId, message);
             }
         }
 

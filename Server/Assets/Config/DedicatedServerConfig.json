@@ -1,6 +1,4 @@
 {
-	"masterIp": "127.0.0.1",
-	"masterPort": 8100,
 	"externalIp": "127.0.0.1",
-	"externalPort": 9600
+	"externalPort": 10600
 }

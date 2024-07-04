@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package C2DS;
+
+
+enum C2DS_MSG_ID
+{
+	NONE = 0;
+	
+	ID_C2DS_PING_REQ = 2001;
+	ID_C2DS_PING_RES = 2002;
+
+	ID_C2DS_JOIN_SERVER_REQ = 2003;
+	ID_C2DS_JOIN_SERVER_RES = 2004;
+	
+	ID_DS2C_START_GAME_REQ = 2005;
+
+	ID_DS2C_SERVER_FRAME_REQ = 2006;
+	
+	ID_C2DS_CLIENT_INPUT_REQ = 2007;
+}
+
+enum C2DS_ERROR_CODE
+{
+	SUCCESS = 0;
+	GENERRAL_ERROR = 101;
+}
+
+message C2DSPingReq
+{
+	string profile_id = 1;
+	int64 client_time = 2;
+}
+
+message C2DSPingRes
+{
+	string profile_id = 1;
+	int64 client_time = 2;
+	int64 server_time = 3;
+}
+
+message C2DSJoinServerReq
+{
+	string profile_id = 1;
+}
+
+message C2DSJoinServerRes
+{
+	int32 player_id = 1; 
+	C2DS_ERROR_CODE error_code = 2;
+}
+
+message DS2CStartGameReq
+{
+	int32 player_count = 1;
+}
+
+message DS2CServerFrameReq
+{
+}
+
+message C2DSClientInputReq
+{
+	string profile_id = 1;
+}
