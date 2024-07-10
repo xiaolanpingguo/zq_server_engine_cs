@@ -5,7 +5,7 @@ using ZQ.Mongo;
 
 namespace ZQ
 {
-    public class AuthorityPlayer
+    public class Player
     {
         public int ConnectionId { get; set; }
         public string ProfileId { get; set; } = null!;

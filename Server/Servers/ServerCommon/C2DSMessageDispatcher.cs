@@ -237,7 +237,7 @@ namespace ZQ
         {
             do
             {
-                if (data.Array == null || data.Count <= k_headSize)
+                if (data.Array == null || data.Count < k_headSize)
                 {
                     break;
                 }

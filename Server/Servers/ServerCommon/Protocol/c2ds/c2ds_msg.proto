@@ -26,6 +26,22 @@ enum C2DS_ERROR_CODE
 	GENERRAL_ERROR = 101;
 }
 
+message PlayerInput
+{
+	string profile_id = 1;
+	int32 button = 2;
+	int32 horizontal = 3;
+	int32 vertical = 4;
+	int32 tick = 5;
+}
+
+message ServerFrame
+{
+	int32 tick = 1;
+	repeated PlayerInput player_inputs = 2;
+}
+
+
 message C2DSPingReq
 {
 	string profile_id = 1;
@@ -57,9 +73,11 @@ message DS2CStartGameReq
 
 message DS2CServerFrameReq
 {
+	int32 start_tick = 1;
+	repeated ServerFrame servr_frame = 2;
 }
 
 message C2DSClientInputReq
 {
-	string profile_id = 1;
+	 PlayerInput player_input = 1;
 }

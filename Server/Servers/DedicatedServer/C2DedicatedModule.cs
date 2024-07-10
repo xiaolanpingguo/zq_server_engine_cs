@@ -1,4 +1,4 @@
-﻿using C2S;
+﻿using C2DS;
 using Google.Protobuf;
 using kcp2k;
 using System.Net;
@@ -57,7 +57,10 @@ namespace ZQ
 
             m_network = new KcpServer(OnClientAcccept, OnDataReceived, OnClientDisconnect, OnServerError, config);
             m_network.Start((ushort)m_endPoint.Port);
+
             m_messageDispatcher = new C2DSMessageDispatcher(m_network);
+            m_messageDispatcher.RegisterMessage((ushort)C2DS_MSG_ID.IdC2DsJoinServerReq, typeof(C2DSJoinServerReq), OnJoinServer);
+
             Log.Info($"dedicated server has started, ip:{m_endPoint}");
             return true;
         }
@@ -78,7 +81,7 @@ namespace ZQ
             return true;
         }
 
-        public bool RegisterRoomMessage(ushort messageId, Type type)
+        public bool RegisterMessage(ushort messageId, Type type)
         {
             if (!m_messageDispatcher.IsMessageRegistered(messageId))
             {
@@ -91,34 +94,6 @@ namespace ZQ
         private void OnClientAcccept(int connectionId)
         {
             Log.Info($"a client has connected to dedicated server, id:{connectionId}");
-
-            if (m_playerRoom.ContainsKey(connectionId))
-            {
-                return;
-            }
-
-            Room room = null!;
-            bool found = false;
-            foreach (var v in m_rooms)
-            {
-                int count = v.PlayersCount();
-                if (count < k_roomPlayersCount)
-                {
-                    room = v;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                room = CreateRoom(k_roomPlayersCount);
-                m_rooms.Add(room);
-            }
-
-            AuthorityPlayer player = new AuthorityPlayer();
-            player.ConnectionId = connectionId;
-            room.AddPlayer(player);
-            m_playerRoom[connectionId] = room;
         }
 
         private void OnDataReceived(int connectionId, ArraySegment<byte> data, KcpChannel channel)
@@ -150,6 +125,52 @@ namespace ZQ
         private Room CreateRoom(int playerCount)
         {
             return new Room(this, m_messageDispatcher, playerCount);
+        }
+
+        private void OnJoinServer(ushort messageId, int connectionId, int rpcId, IMessage? message)
+        {
+            if (message is not C2DSJoinServerReq req)
+            {
+                Log.Error($"OnJoinServer error: cannot convert message to C2DSJoinServerReq");
+                return;
+            }
+
+            if (m_playerRoom.ContainsKey(connectionId))
+            {
+                return;
+            }
+
+            string profileId = req.ProfileId;
+            Room room = null!;
+            bool found = false;
+            foreach (var v in m_rooms)
+            {
+                int count = v.PlayersCount();
+                if (count < k_roomPlayersCount)
+                {
+                    room = v;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                room = CreateRoom(k_roomPlayersCount);
+                m_rooms.Add(room);
+            }
+
+            Log.Info($"a client has joined the server,connectionId:{connectionId}, profileId:{profileId}.");
+
+            Player player = new Player();
+            player.ConnectionId = connectionId;
+            player.ProfileId = profileId;
+            room.AddPlayer(player);
+            m_playerRoom[connectionId] = room;
+
+            C2DS.C2DSJoinServerRes res = new C2DS.C2DSJoinServerRes();
+            res.ErrorCode = C2DS_ERROR_CODE.Success;
+            res.PlayerId = 0;
+            m_messageDispatcher.Response(res, connectionId, (ushort)C2DS_MSG_ID.IdC2DsJoinServerRes, rpcId);
         }
     }
 

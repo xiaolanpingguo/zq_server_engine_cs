@@ -1,35 +1,33 @@
 using System;
 
+
 namespace ZQ
 {
     public class GameTime
     {
-        private long m_startTime;
-        private int m_interval;
-        private DateTime m_dt1970;
-        public long FrameTimeNow { get; private set; }
+        private double m_interval;
+        private DateTime m_lastUpdateTimeStamp;
+        private DateTime m_startUpTimeStamp;
+        private double _deltaTime;
+        private double m_timeSinceStartUp;
+        public long TimeNow { get; private set; }
 
-        public GameTime(int interval)
+        public GameTime(int frameRate)
         {
-            m_interval = interval;
-            m_dt1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            FrameTimeNow = Now();
-            m_startTime = FrameTimeNow;
+            m_interval = frameRate / 1000.0f;
+            m_lastUpdateTimeStamp = DateTime.Now;
+            m_startUpTimeStamp = DateTime.Now;
         }
 
         public void Update()
         {
-            FrameTimeNow = Now();
-        }
-        
-        public long Now()
-        {
-            return (DateTime.UtcNow.Ticks - m_dt1970.Ticks) / 10000;
+            TimeNow = TimeHelper.TimeStampNowMs();
         }
 
         public long FrameTime(int frame)
         {
-            return m_startTime + frame * m_interval;
+            return 0;
+            //return m_startTime + frame * m_interval;
         }
     }
 }
