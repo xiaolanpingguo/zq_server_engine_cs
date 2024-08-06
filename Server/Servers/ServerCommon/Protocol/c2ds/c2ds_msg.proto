@@ -18,12 +18,19 @@ enum C2DS_MSG_ID
 	ID_DS2C_SERVER_FRAME_REQ = 2006;
 	
 	ID_C2DS_CLIENT_INPUT_REQ = 2007;
+	
+	ID_DS2C_ADJUST_UPDATE_TIME_REQ = 2008;
 }
 
 enum C2DS_ERROR_CODE
 {
 	SUCCESS = 0;
 	GENERRAL_ERROR = 101;
+}
+
+message PlayerInfo
+{
+	string profile_id = 1;
 }
 
 message PlayerInput
@@ -40,7 +47,6 @@ message ServerFrame
 	int32 tick = 1;
 	repeated PlayerInput player_inputs = 2;
 }
-
 
 message C2DSPingReq
 {
@@ -62,22 +68,27 @@ message C2DSJoinServerReq
 
 message C2DSJoinServerRes
 {
-	int32 player_id = 1; 
 	C2DS_ERROR_CODE error_code = 2;
 }
 
 message DS2CStartGameReq
 {
-	int32 player_count = 1;
+	repeated PlayerInfo players = 1;
 }
 
 message DS2CServerFrameReq
 {
 	int32 start_tick = 1;
-	repeated ServerFrame servr_frame = 2;
+	ServerFrame servr_frame = 2;
 }
 
 message C2DSClientInputReq
 {
 	 PlayerInput player_input = 1;
 }
+
+message DS2CAdjustUpdateTimeReq
+{
+	int32 diff_time = 1;
+}
+

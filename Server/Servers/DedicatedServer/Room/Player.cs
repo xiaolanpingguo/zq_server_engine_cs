@@ -3,6 +3,7 @@ using Google.Protobuf;
 using System.Xml.Linq;
 using ZQ.Mongo;
 
+
 namespace ZQ
 {
     public class Player
@@ -10,6 +11,5 @@ namespace ZQ
         public int ConnectionId { get; set; }
         public string ProfileId { get; set; } = null!;
         public string IP { get; set; } = null!;
-        public int Progress { get; set; }
     }
 }

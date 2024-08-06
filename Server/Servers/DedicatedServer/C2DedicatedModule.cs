@@ -16,8 +16,9 @@ namespace ZQ
 
         private IPEndPoint m_endPoint;
 
+        int m_roomId = 0;
         private Dictionary<int, Room> m_playerRoom = new();
-        private List<Room> m_rooms = new List<Room>();
+        private Dictionary<int, Room> m_rooms = new();
 
         public C2DedicatedModule(DedicatedServer server, string ip, ushort port)
         {
@@ -31,27 +32,13 @@ namespace ZQ
             kcp2k.Log.Warning = ZQ.Log.Warning;
             kcp2k.Log.Error = ZQ.Log.Error;
             KcpConfig config = new KcpConfig(
-                // force NoDelay and minimum interval.
-               // this way UpdateSeveralTimes() doesn't need to wait very long and
-               // tests run a lot faster.
                NoDelay: true,
-               // not all platforms support DualMode.
-               // run tests without it so they work on all platforms.
                DualMode: false,
-               Interval: 1, // 1ms so at interval code at least runs.
+               Interval: 1,
                Timeout: 10000,
-
-               // large window sizes so large messages are flushed with very few
-               // update calls. otherwise tests take too long.
                SendWindowSize: Kcp.WND_SND * 1000,
                ReceiveWindowSize: Kcp.WND_RCV * 1000,
-
-               // congestion window _heavily_ restricts send/recv window sizes
-               // sending a max sized message would require thousands of updates.
                CongestionWindow: false,
-
-               // maximum retransmit attempts until dead_link detected
-               // default * 2 to check if configuration works
                MaxRetransmits: Kcp.DEADLINK * 2
             );
 
@@ -69,9 +56,9 @@ namespace ZQ
         {
             m_network.Tick();
             m_messageDispatcher.Update(timeNow);
-            foreach(Room room in m_rooms)
+            foreach(var kv in m_rooms)
             {
-                room.Update();
+                kv.Value.Update();
             }
             return true;
         }
@@ -104,7 +91,18 @@ namespace ZQ
         private void OnClientDisconnect(int connectionId)
         {
             IPEndPoint ipEndPoint = m_network.GetClientEndPoint(connectionId);
-            Log.Info($"a client has disconnected to dedicated server, id:{connectionId}, ip:{ipEndPoint}");
+            if (!m_playerRoom.TryGetValue(connectionId, out var room))
+            {
+                return;
+            }
+
+            room.OnPlayersDisconnected(connectionId);
+            m_playerRoom.Remove(connectionId);
+            if (room.CurrentPlayerCount == 0)
+            {
+                Log.Info($"all player has leave from room,  room will be deleted, room id:{room.RoomId}");
+                DeleteRoom(room.RoomId);
+            }
         }
 
         private void OnServerError(int connectionId, ErrorCode ec, string reason)
@@ -122,9 +120,14 @@ namespace ZQ
             }
         }
 
-        private Room CreateRoom(int playerCount)
+        private Room CreateRoom(int id, int playerCount)
         {
-            return new Room(this, m_messageDispatcher, playerCount);
+            return new Room(id, this, m_messageDispatcher, playerCount);
+        }
+
+        private void DeleteRoom(int id)
+        {
+            m_rooms.Remove(id);
         }
 
         private void OnJoinServer(ushort messageId, int connectionId, int rpcId, IMessage? message)
@@ -143,20 +146,20 @@ namespace ZQ
             string profileId = req.ProfileId;
             Room room = null!;
             bool found = false;
-            foreach (var v in m_rooms)
+            foreach (var kv in m_rooms)
             {
-                int count = v.PlayersCount();
+                int count = kv.Value.PlayersCount();
                 if (count < k_roomPlayersCount)
                 {
-                    room = v;
+                    room = kv.Value;
                     found = true;
                     break;
                 }
             }
             if (!found)
             {
-                room = CreateRoom(k_roomPlayersCount);
-                m_rooms.Add(room);
+                room = CreateRoom(m_roomId++, k_roomPlayersCount);
+                m_rooms[room.RoomId] = room;
             }
 
             Log.Info($"a client has joined the server,connectionId:{connectionId}, profileId:{profileId}.");
@@ -169,7 +172,6 @@ namespace ZQ
 
             C2DS.C2DSJoinServerRes res = new C2DS.C2DSJoinServerRes();
             res.ErrorCode = C2DS_ERROR_CODE.Success;
-            res.PlayerId = 0;
             m_messageDispatcher.Response(res, connectionId, (ushort)C2DS_MSG_ID.IdC2DsJoinServerRes, rpcId);
         }
     }

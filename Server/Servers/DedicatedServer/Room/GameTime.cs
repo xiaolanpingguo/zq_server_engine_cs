@@ -5,29 +5,23 @@ namespace ZQ
 {
     public class GameTime
     {
-        private double m_interval;
-        private DateTime m_lastUpdateTimeStamp;
-        private DateTime m_startUpTimeStamp;
-        private double _deltaTime;
-        private double m_timeSinceStartUp;
-        public long TimeNow { get; private set; }
+        public long StartTime { get; private set; }
+        public long Time { get; private set; }
 
-        public GameTime(int frameRate)
+        public GameTime()
         {
-            m_interval = frameRate / 1000.0f;
-            m_lastUpdateTimeStamp = DateTime.Now;
-            m_startUpTimeStamp = DateTime.Now;
+            StartTime = StampNow();
         }
 
         public void Update()
         {
-            TimeNow = TimeHelper.TimeStampNowMs();
+            Time = StampNow() - StartTime;
         }
 
-        public long FrameTime(int frame)
+        public long StampNow() 
         {
-            return 0;
-            //return m_startTime + frame * m_interval;
+            DateTime currentTime = DateTime.UtcNow;
+            return ((DateTimeOffset)currentTime).ToUnixTimeMilliseconds();
         }
     }
 }

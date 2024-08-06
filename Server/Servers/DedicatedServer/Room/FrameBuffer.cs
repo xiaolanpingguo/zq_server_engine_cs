@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 
@@ -6,44 +7,42 @@ namespace ZQ
 {
     public class FrameBuffer
     {
-        private int m_frameCountPerSecond;
-       // private readonly List<OneFrameInputs> m_frameInputs;
-        private readonly List<MemoryBuffer> m_snapshots;
-        private readonly List<long> m_hashs;
+        private readonly int _frameRate;
+        private int _maxFrame;
+        private readonly List<ServerFrame> _frameInputs;
+        private readonly List<SnapshotMemory> _snapshots;
+        private readonly List<long> _hashs;
 
-        public int MaxFrame { get; private set; }
-
-        public FrameBuffer(int frame, int frameCountPerSecond)
+        public FrameBuffer(int frame = 0, int frameRate = 20)
         {
-            //m_frameCountPerSecond = frameCountPerSecond;
-            //int capacity = m_frameCountPerSecond * 60;
-            //MaxFrame = frame + m_frameCountPerSecond * 30;
-            //m_frameInputs = new List<OneFrameInputs>(capacity);
-            //m_snapshots = new List<MemoryBuffer>(capacity);
-            //m_hashs = new List<long>(capacity);
-            
-            //for (int i = 0; i < m_snapshots.Capacity; ++i)
-            //{
-            //    m_hashs.Add(0);
-            //    m_frameInputs.Add(new OneFrameInputs());
-            //    MemoryBuffer memoryBuffer = new(10240);
-            //    memoryBuffer.SetLength(0);
-            //    memoryBuffer.Seek(0, SeekOrigin.Begin);
-            //    m_snapshots.Add(memoryBuffer);
-            //}
+            _frameRate = frameRate;
+            _maxFrame = frame + frameRate * 30;
+            int capacity = frameRate * 60;
+            _frameInputs = new List<ServerFrame>(capacity);
+            _snapshots = new List<SnapshotMemory>(capacity);
+            _hashs = new List<long>(capacity);
+
+            for (int i = 0; i < _snapshots.Capacity; ++i)
+            {
+                _hashs.Add(0);
+                _frameInputs.Add(new ServerFrame());
+                SnapshotMemory memoryBuffer = new(10240);
+                memoryBuffer.SetLength(0);
+                memoryBuffer.Seek(0, SeekOrigin.Begin);
+                _snapshots.Add(memoryBuffer);
+            }
         }
 
         public void SetHash(int frame, long hash)
         {
             EnsureFrame(frame);
-           // m_hashs[frame % m_frameInputs.Capacity] = hash;
+            _hashs[frame % _frameInputs.Capacity] = hash;
         }
-        
+
         public long GetHash(int frame)
         {
             EnsureFrame(frame);
-            return 0;
-            //return m_hashs[frame % m_frameInputs.Capacity];
+            return _hashs[frame % _frameInputs.Capacity];
         }
 
         public bool CheckFrame(int frame)
@@ -53,7 +52,7 @@ namespace ZQ
                 return false;
             }
 
-            if (frame > MaxFrame)
+            if (frame > _maxFrame)
             {
                 return false;
             }
@@ -65,35 +64,35 @@ namespace ZQ
         {
             if (!CheckFrame(frame))
             {
-                throw new Exception($"frame out: {frame}, maxframe: {MaxFrame}");
+               // throw new Exception($"frame out: {frame}, maxframe: {_maxFrame}");
             }
         }
-        
-        //public OneFrameInputs FrameInputs(int frame)
-        //{
-        //    EnsureFrame(frame);
-        //    OneFrameInputs oneFrameInputs = m_frameInputs[frame % m_frameInputs.Capacity];
-        //    return oneFrameInputs;
-        //}
+
+        public ServerFrame GetFrame(int frame)
+        {
+            EnsureFrame(frame);
+            ServerFrame serverFrame = _frameInputs[frame % _frameInputs.Capacity];
+            return serverFrame;
+        }
 
         public void MoveForward(int frame)
         {
-            //// 至少留出1秒的空间
-            //if (MaxFrame - frame > m_frameCountPerSecond)
-            //{
-            //    return;
-            //}
-            
-            //++MaxFrame;
-            
-            //OneFrameInputs oneFrameInputs = FrameInputs(MaxFrame);
-            //oneFrameInputs.Inputs.Clear();
+            // at least reserve 1s
+            if (_maxFrame - frame > _frameRate)
+            {
+                return;
+            }
+
+            ++_maxFrame;
+
+            ServerFrame serverFrame = GetFrame(_maxFrame);
+            //serverFrame.Inputs.Clear();
         }
 
-        public MemoryBuffer Snapshot(int frame)
+        public SnapshotMemory Snapshot(int frame)
         {
             EnsureFrame(frame);
-            MemoryBuffer memoryBuffer = m_snapshots[frame % m_snapshots.Capacity];
+            SnapshotMemory memoryBuffer = _snapshots[frame % _snapshots.Capacity];
             return memoryBuffer;
         }
     }

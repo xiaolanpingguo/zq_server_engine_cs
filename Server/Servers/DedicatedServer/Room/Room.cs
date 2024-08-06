@@ -5,37 +5,22 @@ using System.Net.Sockets;
 using System.Threading.Channels;
 using C2DS;
 using Google.Protobuf;
-using System.Transactions;
-using Microsoft.VisualBasic;
-using MemoryPack;
-using MongoDB.Driver.Core.Connections;
-using System.Numerics;
+using System.Net;
 
 
 namespace ZQ
 {
-    public struct PlayerInput
-    {
-        public int Horizontal;
-        public int Vertical;
-        public int Button;
-    }
-
-    public class ServerFrame
-    {
-        public Dictionary<string, PlayerInput> Inputs = new();
-        public int Tick;
-    }
-
     public class Room
     {
         private enum State
         {
-            WaittingForPlayer,
+            WaittingForPlayerJoin,
+            WaittingForFirstInput,
             Playing,
             End
         }
 
+        public int RoomId { get;}
         public int CurrentPlayerCount => m_players.Count;
 
         private readonly C2DedicatedModule m_c2dedicatedComponent;
@@ -44,45 +29,37 @@ namespace ZQ
         private readonly StateMachine<State> m_stateMachine;
 
         private GameTime m_gameTime;
-        private readonly int m_playerMaxCount = 1;
-
-        private GameWorld m_world;
+        private readonly int m_playerCount = 1;
 
         private Dictionary<int, Player> m_players = new();
-        private Dictionary<string, int> _playerIdDic = new();
 
         private FrameBuffer m_frameBuffer;
+        private FixedTimeCounter m_fixedTimeCounter = null!;
 
-        private int m_authorityFrame = -1;
+        private const int k_maxPresendTickCount= 10;
+        private const int k_frameRate = 20;
+        private const double k_updateIntervalMs = 1000 / k_frameRate;
 
-        public const int k_frameRate = 50;
-        public const double k_updateIntervalMs = k_frameRate / 1000.0f;
-
-        private DateTime m_lastUpdateTimeStamp;
-        private DateTime m_startUpTimeStamp;
-        private double m_deltaTime;
         private int m_tick = 0;
 
-        private List<ServerFrame?> m_allHistoryFrames = new List<ServerFrame?>();
-
-        public Room(C2DedicatedModule c2dedicatedComponent, C2DSMessageDispatcher messageDispatcher, int playerMaxCount = 1) 
+        public Room(int roomId, C2DedicatedModule c2dedicatedComponent, C2DSMessageDispatcher messageDispatcher, int playerMaxCount = 1) 
         {
+            RoomId = roomId;
             m_c2dedicatedComponent = c2dedicatedComponent;
             m_messageDispatcher = messageDispatcher;
-            m_playerMaxCount = playerMaxCount;
-            m_gameTime = new GameTime(k_frameRate);
+            m_playerCount = playerMaxCount;
+            m_gameTime = new GameTime();
             m_frameBuffer = new FrameBuffer(-1, k_frameRate);
 
             RegisterMessage((ushort)C2DS_MSG_ID.IdC2DsPingReq, typeof(C2DSPingReq), OnClientPing);
             RegisterMessage((ushort)C2DS_MSG_ID.IdC2DsClientInputReq, typeof(C2DSClientInputReq), OnClientInput);
 
             m_stateMachine = new StateMachine<State>();
-            m_stateMachine.Add(State.WaittingForPlayer, null, UpdateWaittingForPlayer, null);
-            m_stateMachine.Add(State.Playing, null, UpdatePlaying, null);
+            m_stateMachine.Add(State.WaittingForPlayerJoin, null, UpdatePlayerJoin, null);
+            m_stateMachine.Add(State.WaittingForFirstInput, null, UpdatePlayerFirstInputs, null);
+            m_stateMachine.Add(State.Playing, EnterPlaying, UpdatePlaying, null);
             m_stateMachine.Add(State.End, null, () => { }, null);
-            m_stateMachine.SwitchTo(State.WaittingForPlayer);
-
-            m_world = new GameWorld();
+            m_stateMachine.SwitchTo(State.WaittingForPlayerJoin);
         }
 
         public void Update()
@@ -109,16 +86,42 @@ namespace ZQ
             return m_players.Count;
         }
 
-
-        private void UpdateWaittingForPlayer()
+        public bool AddPlayer(Player player)
         {
-            if (CurrentPlayerCount >= m_playerMaxCount)
+            if (m_players.ContainsKey(player.ConnectionId))
             {
+                return false;
+            }
+
+            m_players[player.ConnectionId] = player;
+            return true;
+        }
+
+        public void OnPlayersDisconnected(int connectionId)
+        {
+            if (m_players.ContainsKey(connectionId))
+            {
+                Log.Info($"a player has disconnected to room , id:{connectionId}, profileid:{m_players[connectionId].ProfileId}");
+                m_players.Remove(connectionId);
+            }
+        }
+
+        private void UpdatePlayerJoin()
+        {
+            if (CurrentPlayerCount >= m_playerCount)
+            {
+                DS2CStartGameReq res = new DS2CStartGameReq();
                 foreach (var kv in m_players)
                 {
                     Player player = kv.Value;
-                    DS2CStartGameReq res = new DS2CStartGameReq();
-                    res.PlayerCount = m_playerMaxCount;
+                    C2DS.PlayerInfo playerInfo = new PlayerInfo();
+                    playerInfo.ProfileId = player.ProfileId;
+                    res.Players.Add(playerInfo);
+                }
+
+                foreach (var kv in m_players)
+                {
+                    Player player = kv.Value;
                     m_messageDispatcher.Send(res, player.ConnectionId, (ushort)C2DS_MSG_ID.IdDs2CStartGameReq);
                 }
 
@@ -126,82 +129,97 @@ namespace ZQ
             }
         }
 
+        private void UpdatePlayerFirstInputs()
+        {
+            // check if all player inputs received in tick 0
+            var frame = m_frameBuffer.GetFrame(m_tick);
+            if (frame.Inputs.Count == m_playerCount) 
+            {
+                m_stateMachine.SwitchTo(State.Playing);
+            }
+        }
+
+        private void EnterPlaying()
+        {
+            m_fixedTimeCounter = new FixedTimeCounter(m_gameTime.StampNow(), 0, (int)k_updateIntervalMs);
+        }
+
         private void UpdatePlaying()
         {
             m_gameTime.Update();
 
-            var now = DateTime.Now;
-            m_deltaTime = (now - m_lastUpdateTimeStamp).TotalSeconds;
-            if (m_deltaTime <= k_updateIntervalMs)
+            long timeNow = m_gameTime.StampNow();
+            int nextTick = m_tick + 1;
+            if (timeNow < m_fixedTimeCounter.FrameTime(nextTick))
             {
                 return;
             }
-            m_lastUpdateTimeStamp = now;
 
-            BroadcastInput();
+            m_tick = nextTick;
+            ServerFrame frame = GetOneFrameMessage(m_tick);
+            BroadcastInput(frame);
             m_tick++;
         }
 
-        private void BroadcastInput()
+        private void BroadcastInput(ServerFrame frame)
         {
             var msg = new DS2CServerFrameReq();
-            int count = m_tick < 2 ? m_tick + 1 : 3;
-            if (count > m_allHistoryFrames.Count)
+            C2DS.ServerFrame msgFrame = new C2DS.ServerFrame();
+            msgFrame.Tick = frame.Tick;
+            foreach (var kv in frame.Inputs)
             {
-                return;
+                var frameInput = kv.Value;
+                C2DS.PlayerInput playerInput = new C2DS.PlayerInput();
+                playerInput.Tick = frame.Tick;
+                playerInput.Horizontal = frameInput.Horizontal;
+                playerInput.Vertical = frameInput.Vertical;
+                playerInput.Button = frameInput.Button;
+                playerInput.ProfileId = kv.Key;
+                msgFrame.PlayerInputs.Add(playerInput);
             }
 
-            for (int i = 0; i < count; i++)
-            {
-                ServerFrame frame = m_allHistoryFrames[m_tick - i];
-                if (frame == null)
-                {
-                    continue;
-                }
-
-                C2DS.ServerFrame msgFrame = new C2DS.ServerFrame();
-                msgFrame.Tick = frame.Tick;
-                foreach (var kv in frame.Inputs)
-                {
-                    var frameInput = kv.Value;
-                    C2DS.PlayerInput playerInput = new C2DS.PlayerInput();
-                    playerInput.Tick = frame.Tick;
-                    playerInput.Horizontal = frameInput.Horizontal;
-                    playerInput.Vertical = frameInput.Vertical;
-                    playerInput.Button = frameInput.Button;
-                    msgFrame.PlayerInputs.Add(playerInput);
-                }
-
-                msg.ServrFrame.Add(msgFrame);
-            }
-
+            msg.ServrFrame = msgFrame;
             foreach(var kv in m_players)
             {
                 m_messageDispatcher.Send(msg, kv.Value.ConnectionId, (ushort)C2DS_MSG_ID.IdDs2CServerFrameReq);
             }
         }
 
-        ServerFrame GetOrCreateFrame(int tick)
+        private ServerFrame GetOneFrameMessage(int tick)
         {
-            var frameCount = m_allHistoryFrames.Count;
-            if (frameCount <= tick)
+            ServerFrame frame = m_frameBuffer.GetFrame(tick);
+            m_frameBuffer.MoveForward(tick);
+
+            // we received all players input
+            if (frame.Inputs.Count == m_playerCount)
             {
-                var count = tick - m_allHistoryFrames.Count + 1;
-                for (int i = 0; i < count; i++)
+                return frame;
+            }
+
+            ServerFrame preFrameInputs = null;
+            if (m_frameBuffer.CheckFrame(tick - 1))
+            {
+                preFrameInputs = m_frameBuffer.GetFrame(tick - 1);
+            }
+
+            // we haven't received some player's msg 
+            foreach (var kv in m_players)
+            {
+                string profileId = kv.Value.ProfileId;
+                if (frame.Inputs.ContainsKey(profileId))
                 {
-                    m_allHistoryFrames.Add(null);
+                    continue;
                 }
-            }
 
-            if (m_allHistoryFrames[tick] == null)
-            {
-                m_allHistoryFrames[tick] = new ServerFrame() { Tick = tick };
-            }
-
-            var frame = m_allHistoryFrames[tick];
-            if (frame == null)
-            {
-                return null;
+                // use last input 
+                if (preFrameInputs != null && preFrameInputs.Inputs.TryGetValue(profileId, out PlayerInput input))
+                {
+                    frame.Inputs[profileId] = input;
+                }
+                else
+                {
+                    frame.Inputs[profileId] = PlayerInput.EmptyInput;
+                }
             }
 
             return frame;
@@ -237,45 +255,47 @@ namespace ZQ
                 return;
             }
 
+            string profileId = req.PlayerInput.ProfileId;
             int clientTick = req.PlayerInput.Tick;
+            SendAdjustUpdateTimeMsg(connectionId, clientTick);
+
             if (clientTick < m_tick)
             {
                 return;
             }
 
-            string profileId = req.PlayerInput.ProfileId;
-            int index = GetPlayerIndexByProfileId(profileId);
-            if (index == -1)
+            if (clientTick > m_tick + k_maxPresendTickCount)
             {
+                Log.Warning($"clientTick > AuthorityFrame + {k_maxPresendTickCount}, discard.");
                 return;
             }
 
-            var frame = GetOrCreateFrame(clientTick);
-            var playerInputs = frame.Inputs;
+            ServerFrame serverframe = m_frameBuffer.GetFrame(clientTick);
+            if (serverframe == null)
+            {
+                Log.Error($"serverframe is null, clientTick: {clientTick}.");
+                return;
+            }
+
             PlayerInput newInput = default;
             newInput.Vertical = req.PlayerInput.Vertical;
             newInput.Horizontal = req.PlayerInput.Horizontal;
             newInput.Button = req.PlayerInput.Button;
-
-            if (playerInputs.ContainsKey(profileId))
-            {
-                playerInputs[profileId] = newInput;
-            }
-            else
-            {
-                playerInputs.Add(profileId, newInput);
-            }
+            serverframe.Inputs[profileId] = newInput;
         }
 
-        public bool AddPlayer(Player player) 
+        private void SendAdjustUpdateTimeMsg(int connectionId, int clientTick)
         {
-            if (m_players.ContainsKey(player.ConnectionId))
+            // send every second
+            if (clientTick % k_frameRate == 0)
             {
-                return false;
-            }
+                long nowFrameTime = m_fixedTimeCounter.FrameTime(clientTick);
+                int diffTime = (int)(nowFrameTime - m_gameTime.StampNow());
 
-            m_players[player.ConnectionId] = player;
-            return true;
+                DS2CAdjustUpdateTimeReq req = new DS2CAdjustUpdateTimeReq();
+                req.DiffTime = diffTime;
+                m_messageDispatcher.Send(req, connectionId, (ushort)C2DS_MSG_ID.IdDs2CAdjustUpdateTimeReq);
+            }
         }
 
         private Player? GetPlayer(int connectionId)
@@ -286,16 +306,6 @@ namespace ZQ
             }
 
             return null;
-        }
-
-        private int GetPlayerIndexByProfileId(string profileId)
-        {
-            if (_playerIdDic.TryGetValue(profileId, out var id))
-            {
-                return id;
-            }
-
-            return -1;
         }
     }
 }

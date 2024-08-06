@@ -10,19 +10,19 @@ namespace ZQ
         {
             m_startTime = startTime;
             m_startFrame = startFrame;
-            this.Interval = interval;
+            Interval = interval;
         }
         
         public void ChangeInterval(int interval, int frame)
         {
-            m_startTime += (frame - m_startFrame) * this.Interval;
+            m_startTime += (frame - m_startFrame) * Interval;
             m_startFrame = frame;
-            this.Interval = interval;
+            Interval = interval;
         }
 
         public long FrameTime(int frame)
         {
-            return m_startTime + (frame - m_startFrame) * this.Interval;
+            return m_startTime + (frame - m_startFrame) * Interval;
         }
         
         public void Reset(long time, int frame)
