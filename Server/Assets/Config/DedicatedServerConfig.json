@@ -1,4 +1,5 @@
 {
 	"externalIp": "127.0.0.1",
-	"externalPort": 10600
+	"externalPort": 10600,
+	"roomMaxPlayers": 1
 }

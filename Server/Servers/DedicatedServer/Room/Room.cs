@@ -101,7 +101,7 @@ namespace ZQ
         {
             if (m_players.ContainsKey(connectionId))
             {
-                Log.Info($"a player has disconnected to room , id:{connectionId}, profileid:{m_players[connectionId].ProfileId}");
+                Log.Info($"a player has disconnected to room , roomid:{RoomId}, id:{connectionId}, profileid:{m_players[connectionId].ProfileId}");
                 m_players.Remove(connectionId);
             }
         }

@@ -12,6 +12,7 @@ namespace ZQ
     {
         public string externalIp { get; set; } = null!;
         public ushort externalPort { get; set; }
+        public int roomMaxPlayers { get; set; }
     }
 
     public class DedicatedServer : Server

@@ -8,8 +8,6 @@ namespace ZQ
 {
     public class C2DedicatedModule : IModule
     {
-        const int k_roomPlayersCount = 1;
-
         private readonly DedicatedServer m_server = null!;
         private KcpServer m_network = null!;
         private C2DSMessageDispatcher m_messageDispatcher = null!;
@@ -20,10 +18,13 @@ namespace ZQ
         private Dictionary<int, Room> m_playerRoom = new();
         private Dictionary<int, Room> m_rooms = new();
 
+        private int m_roomMaxPlayers = 1;
+
         public C2DedicatedModule(DedicatedServer server, string ip, ushort port)
         {
             m_server = server;
             m_endPoint = new IPEndPoint(IPAddress.Parse(ip), port);
+            m_roomMaxPlayers = m_server.Config.roomMaxPlayers;
         }
 
         public bool Init()
@@ -35,7 +36,7 @@ namespace ZQ
                NoDelay: true,
                DualMode: false,
                Interval: 1,
-               Timeout: 10000,
+               Timeout: 1000 * 60* 5,
                SendWindowSize: Kcp.WND_SND * 1000,
                ReceiveWindowSize: Kcp.WND_RCV * 1000,
                CongestionWindow: false,
@@ -149,7 +150,7 @@ namespace ZQ
             foreach (var kv in m_rooms)
             {
                 int count = kv.Value.PlayersCount();
-                if (count < k_roomPlayersCount)
+                if (count < m_roomMaxPlayers)
                 {
                     room = kv.Value;
                     found = true;
@@ -158,7 +159,7 @@ namespace ZQ
             }
             if (!found)
             {
-                room = CreateRoom(m_roomId++, k_roomPlayersCount);
+                room = CreateRoom(m_roomId++, m_roomMaxPlayers);
                 m_rooms[room.RoomId] = room;
             }
 
