@@ -24,42 +24,42 @@ namespace C2DS {
     static C2DsMsgReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "Cg5jMmRzX21zZy5wcm90bxIEQzJEUyIgCgpQbGF5ZXJJbmZvEhIKCnByb2Zp",
-            "bGVfaWQYASABKAkiZQoLUGxheWVySW5wdXQSEgoKcHJvZmlsZV9pZBgBIAEo",
-            "CRIOCgZidXR0b24YAiABKAUSEgoKaG9yaXpvbnRhbBgDIAEoBRIQCgh2ZXJ0",
-            "aWNhbBgEIAEoBRIMCgR0aWNrGAUgASgFIkUKC1NlcnZlckZyYW1lEgwKBHRp",
-            "Y2sYASABKAUSKAoNcGxheWVyX2lucHV0cxgCIAMoCzIRLkMyRFMuUGxheWVy",
-            "SW5wdXQiNgoLQzJEU1BpbmdSZXESEgoKcHJvZmlsZV9pZBgBIAEoCRITCgtj",
-            "bGllbnRfdGltZRgCIAEoAyJLCgtDMkRTUGluZ1JlcxISCgpwcm9maWxlX2lk",
-            "GAEgASgJEhMKC2NsaWVudF90aW1lGAIgASgDEhMKC3NlcnZlcl90aW1lGAMg",
-            "ASgDIicKEUMyRFNKb2luU2VydmVyUmVxEhIKCnByb2ZpbGVfaWQYASABKAki",
-            "PgoRQzJEU0pvaW5TZXJ2ZXJSZXMSKQoKZXJyb3JfY29kZRgCIAEoDjIVLkMy",
-            "RFMuQzJEU19FUlJPUl9DT0RFIjUKEERTMkNTdGFydEdhbWVSZXESIQoHcGxh",
-            "eWVycxgBIAMoCzIQLkMyRFMuUGxheWVySW5mbyJQChJEUzJDU2VydmVyRnJh",
-            "bWVSZXESEgoKc3RhcnRfdGljaxgBIAEoBRImCgtzZXJ2cl9mcmFtZRgCIAEo",
-            "CzIRLkMyRFMuU2VydmVyRnJhbWUiPQoSQzJEU0NsaWVudElucHV0UmVxEicK",
-            "DHBsYXllcl9pbnB1dBgBIAEoCzIRLkMyRFMuUGxheWVySW5wdXQiLAoXRFMy",
-            "Q0FkanVzdFVwZGF0ZVRpbWVSZXESEQoJZGlmZl90aW1lGAEgASgFKoECCgtD",
-            "MkRTX01TR19JRBIICgROT05FEAASFQoQSURfQzJEU19QSU5HX1JFURDRDxIV",
-            "ChBJRF9DMkRTX1BJTkdfUkVTENIPEhwKF0lEX0MyRFNfSk9JTl9TRVJWRVJf",
-            "UkVRENMPEhwKF0lEX0MyRFNfSk9JTl9TRVJWRVJfUkVTENQPEhsKFklEX0RT",
-            "MkNfU1RBUlRfR0FNRV9SRVEQ1Q8SHQoYSURfRFMyQ19TRVJWRVJfRlJBTUVf",
-            "UkVRENYPEh0KGElEX0MyRFNfQ0xJRU5UX0lOUFVUX1JFURDXDxIjCh5JRF9E",
-            "UzJDX0FESlVTVF9VUERBVEVfVElNRV9SRVEQ2A8qMgoPQzJEU19FUlJPUl9D",
-            "T0RFEgsKB1NVQ0NFU1MQABISCg5HRU5FUlJBTF9FUlJPUhBlYgZwcm90bzM="));
+            "Cg5jMmRzX21zZy5wcm90bxIEQzJEUyIvCgpQbGF5ZXJJbmZvEhIKCnByb2Zp",
+            "bGVfaWQYASABKAkSDQoFY29sb3IYAiABKAUiVwoLUGxheWVySW5wdXQSEgoK",
+            "cHJvZmlsZV9pZBgBIAEoCRIOCgZidXR0b24YAiABKAUSEgoKaG9yaXpvbnRh",
+            "bBgDIAEoBRIQCgh2ZXJ0aWNhbBgEIAEoBSJFCgtTZXJ2ZXJGcmFtZRIMCgR0",
+            "aWNrGAEgASgFEigKDXBsYXllcl9pbnB1dHMYAiADKAsyES5DMkRTLlBsYXll",
+            "cklucHV0IjYKC0MyRFNQaW5nUmVxEhIKCnByb2ZpbGVfaWQYASABKAkSEwoL",
+            "Y2xpZW50X3RpbWUYAiABKAMiSwoLQzJEU1BpbmdSZXMSEgoKcHJvZmlsZV9p",
+            "ZBgBIAEoCRITCgtjbGllbnRfdGltZRgCIAEoAxITCgtzZXJ2ZXJfdGltZRgD",
+            "IAEoAyInChFDMkRTSm9pblNlcnZlclJlcRISCgpwcm9maWxlX2lkGAEgASgJ",
+            "Ij4KEUMyRFNKb2luU2VydmVyUmVzEikKCmVycm9yX2NvZGUYAiABKA4yFS5D",
+            "MkRTLkMyRFNfRVJST1JfQ09ERSI1ChBEUzJDU3RhcnRHYW1lUmVxEiEKB3Bs",
+            "YXllcnMYASADKAsyEC5DMkRTLlBsYXllckluZm8iPAoSRFMyQ1NlcnZlckZy",
+            "YW1lUmVxEiYKC3NlcnZyX2ZyYW1lGAEgASgLMhEuQzJEUy5TZXJ2ZXJGcmFt",
+            "ZSJLChJDMkRTQ2xpZW50SW5wdXRSZXESDAoEdGljaxgBIAEoBRInCgxwbGF5",
+            "ZXJfaW5wdXQYAiABKAsyES5DMkRTLlBsYXllcklucHV0IiwKF0RTMkNBZGp1",
+            "c3RVcGRhdGVUaW1lUmVxEhEKCWRpZmZfdGltZRgBIAEoBSqBAgoLQzJEU19N",
+            "U0dfSUQSCAoETk9ORRAAEhUKEElEX0MyRFNfUElOR19SRVEQ0Q8SFQoQSURf",
+            "QzJEU19QSU5HX1JFUxDSDxIcChdJRF9DMkRTX0pPSU5fU0VSVkVSX1JFURDT",
+            "DxIcChdJRF9DMkRTX0pPSU5fU0VSVkVSX1JFUxDUDxIbChZJRF9EUzJDX1NU",
+            "QVJUX0dBTUVfUkVRENUPEh0KGElEX0RTMkNfU0VSVkVSX0ZSQU1FX1JFURDW",
+            "DxIdChhJRF9DMkRTX0NMSUVOVF9JTlBVVF9SRVEQ1w8SIwoeSURfRFMyQ19B",
+            "REpVU1RfVVBEQVRFX1RJTUVfUkVRENgPKjIKD0MyRFNfRVJST1JfQ09ERRIL",
+            "CgdTVUNDRVNTEAASEgoOR0VORVJSQUxfRVJST1IQZWIGcHJvdG8z"));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(new[] {typeof(global::C2DS.C2DS_MSG_ID), typeof(global::C2DS.C2DS_ERROR_CODE), }, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.PlayerInfo), global::C2DS.PlayerInfo.Parser, new[]{ "ProfileId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.PlayerInput), global::C2DS.PlayerInput.Parser, new[]{ "ProfileId", "Button", "Horizontal", "Vertical", "Tick" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.PlayerInfo), global::C2DS.PlayerInfo.Parser, new[]{ "ProfileId", "Color" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.PlayerInput), global::C2DS.PlayerInput.Parser, new[]{ "ProfileId", "Button", "Horizontal", "Vertical" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.ServerFrame), global::C2DS.ServerFrame.Parser, new[]{ "Tick", "PlayerInputs" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.C2DSPingReq), global::C2DS.C2DSPingReq.Parser, new[]{ "ProfileId", "ClientTime" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.C2DSPingRes), global::C2DS.C2DSPingRes.Parser, new[]{ "ProfileId", "ClientTime", "ServerTime" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.C2DSJoinServerReq), global::C2DS.C2DSJoinServerReq.Parser, new[]{ "ProfileId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.C2DSJoinServerRes), global::C2DS.C2DSJoinServerRes.Parser, new[]{ "ErrorCode" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.DS2CStartGameReq), global::C2DS.DS2CStartGameReq.Parser, new[]{ "Players" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.DS2CServerFrameReq), global::C2DS.DS2CServerFrameReq.Parser, new[]{ "StartTick", "ServrFrame" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.C2DSClientInputReq), global::C2DS.C2DSClientInputReq.Parser, new[]{ "PlayerInput" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.DS2CServerFrameReq), global::C2DS.DS2CServerFrameReq.Parser, new[]{ "ServrFrame" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.C2DSClientInputReq), global::C2DS.C2DSClientInputReq.Parser, new[]{ "Tick", "PlayerInput" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::C2DS.DS2CAdjustUpdateTimeReq), global::C2DS.DS2CAdjustUpdateTimeReq.Parser, new[]{ "DiffTime" }, null, null, null, null)
           }));
     }
@@ -122,6 +122,7 @@ namespace C2DS {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public PlayerInfo(PlayerInfo other) : this() {
       profileId_ = other.profileId_;
+      color_ = other.color_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -143,6 +144,18 @@ namespace C2DS {
       }
     }
 
+    /// <summary>Field number for the "color" field.</summary>
+    public const int ColorFieldNumber = 2;
+    private int color_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Color {
+      get { return color_; }
+      set {
+        color_ = value;
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -159,6 +172,7 @@ namespace C2DS {
         return true;
       }
       if (ProfileId != other.ProfileId) return false;
+      if (Color != other.Color) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -167,6 +181,7 @@ namespace C2DS {
     public override int GetHashCode() {
       int hash = 1;
       if (ProfileId.Length != 0) hash ^= ProfileId.GetHashCode();
+      if (Color != 0) hash ^= Color.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -189,6 +204,10 @@ namespace C2DS {
         output.WriteRawTag(10);
         output.WriteString(ProfileId);
       }
+      if (Color != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(Color);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -203,6 +222,10 @@ namespace C2DS {
         output.WriteRawTag(10);
         output.WriteString(ProfileId);
       }
+      if (Color != 0) {
+        output.WriteRawTag(16);
+        output.WriteInt32(Color);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -215,6 +238,9 @@ namespace C2DS {
       int size = 0;
       if (ProfileId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(ProfileId);
+      }
+      if (Color != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Color);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -230,6 +256,9 @@ namespace C2DS {
       }
       if (other.ProfileId.Length != 0) {
         ProfileId = other.ProfileId;
+      }
+      if (other.Color != 0) {
+        Color = other.Color;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -250,6 +279,10 @@ namespace C2DS {
             ProfileId = input.ReadString();
             break;
           }
+          case 16: {
+            Color = input.ReadInt32();
+            break;
+          }
         }
       }
     #endif
@@ -267,6 +300,10 @@ namespace C2DS {
             break;
           case 10: {
             ProfileId = input.ReadString();
+            break;
+          }
+          case 16: {
+            Color = input.ReadInt32();
             break;
           }
         }
@@ -314,7 +351,6 @@ namespace C2DS {
       button_ = other.button_;
       horizontal_ = other.horizontal_;
       vertical_ = other.vertical_;
-      tick_ = other.tick_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -372,18 +408,6 @@ namespace C2DS {
       }
     }
 
-    /// <summary>Field number for the "tick" field.</summary>
-    public const int TickFieldNumber = 5;
-    private int tick_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int Tick {
-      get { return tick_; }
-      set {
-        tick_ = value;
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -403,7 +427,6 @@ namespace C2DS {
       if (Button != other.Button) return false;
       if (Horizontal != other.Horizontal) return false;
       if (Vertical != other.Vertical) return false;
-      if (Tick != other.Tick) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -415,7 +438,6 @@ namespace C2DS {
       if (Button != 0) hash ^= Button.GetHashCode();
       if (Horizontal != 0) hash ^= Horizontal.GetHashCode();
       if (Vertical != 0) hash ^= Vertical.GetHashCode();
-      if (Tick != 0) hash ^= Tick.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -450,10 +472,6 @@ namespace C2DS {
         output.WriteRawTag(32);
         output.WriteInt32(Vertical);
       }
-      if (Tick != 0) {
-        output.WriteRawTag(40);
-        output.WriteInt32(Tick);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -480,10 +498,6 @@ namespace C2DS {
         output.WriteRawTag(32);
         output.WriteInt32(Vertical);
       }
-      if (Tick != 0) {
-        output.WriteRawTag(40);
-        output.WriteInt32(Tick);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -505,9 +519,6 @@ namespace C2DS {
       }
       if (Vertical != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(Vertical);
-      }
-      if (Tick != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Tick);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -532,9 +543,6 @@ namespace C2DS {
       }
       if (other.Vertical != 0) {
         Vertical = other.Vertical;
-      }
-      if (other.Tick != 0) {
-        Tick = other.Tick;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -567,10 +575,6 @@ namespace C2DS {
             Vertical = input.ReadInt32();
             break;
           }
-          case 40: {
-            Tick = input.ReadInt32();
-            break;
-          }
         }
       }
     #endif
@@ -600,10 +604,6 @@ namespace C2DS {
           }
           case 32: {
             Vertical = input.ReadInt32();
-            break;
-          }
-          case 40: {
-            Tick = input.ReadInt32();
             break;
           }
         }
@@ -1907,7 +1907,6 @@ namespace C2DS {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public DS2CServerFrameReq(DS2CServerFrameReq other) : this() {
-      startTick_ = other.startTick_;
       servrFrame_ = other.servrFrame_ != null ? other.servrFrame_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
@@ -1918,20 +1917,8 @@ namespace C2DS {
       return new DS2CServerFrameReq(this);
     }
 
-    /// <summary>Field number for the "start_tick" field.</summary>
-    public const int StartTickFieldNumber = 1;
-    private int startTick_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int StartTick {
-      get { return startTick_; }
-      set {
-        startTick_ = value;
-      }
-    }
-
     /// <summary>Field number for the "servr_frame" field.</summary>
-    public const int ServrFrameFieldNumber = 2;
+    public const int ServrFrameFieldNumber = 1;
     private global::C2DS.ServerFrame servrFrame_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -1957,7 +1944,6 @@ namespace C2DS {
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (StartTick != other.StartTick) return false;
       if (!object.Equals(ServrFrame, other.ServrFrame)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -1966,7 +1952,6 @@ namespace C2DS {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (StartTick != 0) hash ^= StartTick.GetHashCode();
       if (servrFrame_ != null) hash ^= ServrFrame.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -1986,12 +1971,8 @@ namespace C2DS {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (StartTick != 0) {
-        output.WriteRawTag(8);
-        output.WriteInt32(StartTick);
-      }
       if (servrFrame_ != null) {
-        output.WriteRawTag(18);
+        output.WriteRawTag(10);
         output.WriteMessage(ServrFrame);
       }
       if (_unknownFields != null) {
@@ -2004,12 +1985,8 @@ namespace C2DS {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (StartTick != 0) {
-        output.WriteRawTag(8);
-        output.WriteInt32(StartTick);
-      }
       if (servrFrame_ != null) {
-        output.WriteRawTag(18);
+        output.WriteRawTag(10);
         output.WriteMessage(ServrFrame);
       }
       if (_unknownFields != null) {
@@ -2022,9 +1999,6 @@ namespace C2DS {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (StartTick != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeInt32Size(StartTick);
-      }
       if (servrFrame_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(ServrFrame);
       }
@@ -2039,9 +2013,6 @@ namespace C2DS {
     public void MergeFrom(DS2CServerFrameReq other) {
       if (other == null) {
         return;
-      }
-      if (other.StartTick != 0) {
-        StartTick = other.StartTick;
       }
       if (other.servrFrame_ != null) {
         if (servrFrame_ == null) {
@@ -2064,11 +2035,7 @@ namespace C2DS {
           default:
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
-          case 8: {
-            StartTick = input.ReadInt32();
-            break;
-          }
-          case 18: {
+          case 10: {
             if (servrFrame_ == null) {
               ServrFrame = new global::C2DS.ServerFrame();
             }
@@ -2090,11 +2057,7 @@ namespace C2DS {
           default:
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
-          case 8: {
-            StartTick = input.ReadInt32();
-            break;
-          }
-          case 18: {
+          case 10: {
             if (servrFrame_ == null) {
               ServrFrame = new global::C2DS.ServerFrame();
             }
@@ -2142,6 +2105,7 @@ namespace C2DS {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public C2DSClientInputReq(C2DSClientInputReq other) : this() {
+      tick_ = other.tick_;
       playerInput_ = other.playerInput_ != null ? other.playerInput_.Clone() : null;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
@@ -2152,8 +2116,20 @@ namespace C2DS {
       return new C2DSClientInputReq(this);
     }
 
+    /// <summary>Field number for the "tick" field.</summary>
+    public const int TickFieldNumber = 1;
+    private int tick_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int Tick {
+      get { return tick_; }
+      set {
+        tick_ = value;
+      }
+    }
+
     /// <summary>Field number for the "player_input" field.</summary>
-    public const int PlayerInputFieldNumber = 1;
+    public const int PlayerInputFieldNumber = 2;
     private global::C2DS.PlayerInput playerInput_;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2179,6 +2155,7 @@ namespace C2DS {
       if (ReferenceEquals(other, this)) {
         return true;
       }
+      if (Tick != other.Tick) return false;
       if (!object.Equals(PlayerInput, other.PlayerInput)) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -2187,6 +2164,7 @@ namespace C2DS {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
+      if (Tick != 0) hash ^= Tick.GetHashCode();
       if (playerInput_ != null) hash ^= PlayerInput.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -2206,8 +2184,12 @@ namespace C2DS {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
+      if (Tick != 0) {
+        output.WriteRawTag(8);
+        output.WriteInt32(Tick);
+      }
       if (playerInput_ != null) {
-        output.WriteRawTag(10);
+        output.WriteRawTag(18);
         output.WriteMessage(PlayerInput);
       }
       if (_unknownFields != null) {
@@ -2220,8 +2202,12 @@ namespace C2DS {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Tick != 0) {
+        output.WriteRawTag(8);
+        output.WriteInt32(Tick);
+      }
       if (playerInput_ != null) {
-        output.WriteRawTag(10);
+        output.WriteRawTag(18);
         output.WriteMessage(PlayerInput);
       }
       if (_unknownFields != null) {
@@ -2234,6 +2220,9 @@ namespace C2DS {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
+      if (Tick != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeInt32Size(Tick);
+      }
       if (playerInput_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(PlayerInput);
       }
@@ -2248,6 +2237,9 @@ namespace C2DS {
     public void MergeFrom(C2DSClientInputReq other) {
       if (other == null) {
         return;
+      }
+      if (other.Tick != 0) {
+        Tick = other.Tick;
       }
       if (other.playerInput_ != null) {
         if (playerInput_ == null) {
@@ -2270,7 +2262,11 @@ namespace C2DS {
           default:
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
-          case 10: {
+          case 8: {
+            Tick = input.ReadInt32();
+            break;
+          }
+          case 18: {
             if (playerInput_ == null) {
               PlayerInput = new global::C2DS.PlayerInput();
             }
@@ -2292,7 +2288,11 @@ namespace C2DS {
           default:
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
-          case 10: {
+          case 8: {
+            Tick = input.ReadInt32();
+            break;
+          }
+          case 18: {
             if (playerInput_ == null) {
               PlayerInput = new global::C2DS.PlayerInput();
             }

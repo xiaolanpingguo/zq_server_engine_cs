@@ -31,6 +31,7 @@ enum C2DS_ERROR_CODE
 message PlayerInfo
 {
 	string profile_id = 1;
+	int32 color = 2;
 }
 
 message PlayerInput
@@ -39,7 +40,6 @@ message PlayerInput
 	int32 button = 2;
 	int32 horizontal = 3;
 	int32 vertical = 4;
-	int32 tick = 5;
 }
 
 message ServerFrame
@@ -78,13 +78,13 @@ message DS2CStartGameReq
 
 message DS2CServerFrameReq
 {
-	int32 start_tick = 1;
-	ServerFrame servr_frame = 2;
+	ServerFrame servr_frame = 1;
 }
 
 message C2DSClientInputReq
 {
-	 PlayerInput player_input = 1;
+	int32 tick = 1;
+	PlayerInput player_input = 2;
 }
 
 message DS2CAdjustUpdateTimeReq

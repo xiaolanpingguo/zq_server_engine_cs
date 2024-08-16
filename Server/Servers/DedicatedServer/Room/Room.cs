@@ -150,7 +150,8 @@ namespace ZQ
 
             long timeNow = m_gameTime.StampNow();
             int nextTick = m_tick + 1;
-            if (timeNow < m_fixedTimeCounter.FrameTime(nextTick))
+            long nextTickTime = m_fixedTimeCounter.FrameTime(nextTick);
+            if (timeNow < nextTickTime)
             {
                 return;
             }
@@ -158,7 +159,6 @@ namespace ZQ
             m_tick = nextTick;
             ServerFrame frame = GetOneFrameMessage(m_tick);
             BroadcastInput(frame);
-            m_tick++;
         }
 
         private void BroadcastInput(ServerFrame frame)
@@ -170,7 +170,6 @@ namespace ZQ
             {
                 var frameInput = kv.Value;
                 C2DS.PlayerInput playerInput = new C2DS.PlayerInput();
-                playerInput.Tick = frame.Tick;
                 playerInput.Horizontal = frameInput.Horizontal;
                 playerInput.Vertical = frameInput.Vertical;
                 playerInput.Button = frameInput.Button;
@@ -256,21 +255,24 @@ namespace ZQ
             }
 
             string profileId = req.PlayerInput.ProfileId;
-            int clientTick = req.PlayerInput.Tick;
+            int clientTick = req.Tick;
+            Log.Info($"OnClientInput, clientTick: {clientTick}, serverTick:{m_tick}");
             SendAdjustUpdateTimeMsg(connectionId, clientTick);
 
             if (clientTick < m_tick)
             {
+                Log.Warning($"OnClientInput discard, clientTick < m_tick, clientTick:{clientTick}, {m_tick}.");
                 return;
             }
 
             if (clientTick > m_tick + k_maxPresendTickCount)
             {
-                Log.Warning($"clientTick > AuthorityFrame + {k_maxPresendTickCount}, discard.");
+                Log.Warning($"OnClientInput discard, clientTick > m_tick, clientTick:{clientTick}, {m_tick}.");
                 return;
             }
 
             ServerFrame serverframe = m_frameBuffer.GetFrame(clientTick);
+            serverframe.Tick = clientTick;
             if (serverframe == null)
             {
                 Log.Error($"serverframe is null, clientTick: {clientTick}.");
